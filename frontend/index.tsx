@@ -65,19 +65,19 @@ async function geocodeAddresses(apiKey, addresses) {
     return Promise.all(latLngPromises);
 }
 
-async function createDistanceTable(apiKey, locations) {
+async function createDistanceTable(apiKey, records, latLngs) {
     if (!googleMapsLoaded) {
         googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
     }
 
     await googleMapsLoaded;
 
-    const distanceTable = new Map();
-    locations.forEach(loc => distanceTable.set(loc, new Map()));
+    const distanceTable = {};
+    records.forEach(rec => distanceTable[rec.id] = {});
 
-    const origins = locations;
+    const origins = latLngs;
     console.log({ origins })
-    const destinations = locations;
+    const destinations = latLngs;
     const service = new google.maps.DistanceMatrixService();
 
     return new Promise(resolve => {
@@ -89,14 +89,15 @@ async function createDistanceTable(apiKey, locations) {
             console.log('google maps response', response);
             if (status == 'OK') {
                 const { rows } = response;
-                locations.forEach((loc1, iOuter) => {
+                latLngs.forEach((loc1, iOuter) => {
                     const { elements } = rows[iOuter];
-                    locations.forEach((loc2, iInner) => {
+                    latLngs.forEach((loc2, iInner) => {
                         if (iOuter === iInner) {
                             return;
                         }
                         const distance = elements[iInner].distance.value;
-                        distanceTable.get(loc1).set(loc2, distance);
+
+                        distanceTable[records[iOuter].id][records[iInner].id] = distance;
                     });
                 });
 
@@ -130,7 +131,7 @@ function App() {
 
     useEffect(() => {
         if (records && locationField && groupSize) {
-            console.log('testing effect');
+            console.log('testing effect with effect cache [records, locationField, groupSize]', [records, locationField, groupSize]);
         }
     }, [records, locationField, groupSize]);
 
@@ -147,6 +148,9 @@ function App() {
             const indexMinimum = partitionScores.indexOf(minimumScore);
             setOptimalPartition(allPartitions[indexMinimum]);
         }
+        // Do NOT add `records` to the array below or the setOptimalPartition call
+        // will kick off an endless loop of re-setting `records`, calling this effect,
+        // calling setOptimalPartition(), and so on and so forth.
     }, [distanceTable, groupSize]);
 
     // Create table of distances between each pair of locations
@@ -166,6 +170,8 @@ function App() {
 
     const nextPage = () => setPageIndex(pageIndex + 1);
 
+    let latLngByRecordId = {};
+
     switch (pageIndex) {
         default:
         case 0: {
@@ -176,12 +182,12 @@ function App() {
                     <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
                     <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
                     <div>These are your locations:</div>
-                    {locationField ?
+                    {!locationField ?
                         <div>None selected</div> :
                         <ul>
-                            {records.map(record => {
-                                <li>record.getCellValue(locationField)</li>
-                            })}
+                            {records.map(record =>
+                                <li key={record.id}>{record.getCellValue(locationField)}</li>
+                            )}
                         </ul>
                     }
                     {locationField &&
@@ -229,6 +235,9 @@ function App() {
                                 map.fitBounds(bounds);
 
                                 setLatLngs(latLngs);
+                                latLngs.forEach((latLng, index) => {
+                                    latLngByRecordId[records[index].id] = latLng;
+                                });
                             });
                         }}
                     >
@@ -261,7 +270,7 @@ function App() {
                     />
                     <Button
                         onClick={() => {
-                            createDistanceTable(apiKey, latLngs)
+                            createDistanceTable(apiKey, records, latLngs)
                                 .then(setDistanceTable);
                         }}
                     >
@@ -359,7 +368,7 @@ function scorePartition(distanceTable, partition) {
                 if (outerIndex === innerIndex) {
                     return;
                 }
-                distanceSum += distanceTable[record1.name][record2.name];
+                distanceSum += distanceTable[record1.id][record2.id];
             });
         });
         return score + distanceSum;
