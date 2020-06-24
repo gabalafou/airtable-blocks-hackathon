@@ -181,21 +181,20 @@ function App() {
                     <TablePickerSynced globalConfigKey="selectedTableId" />
                     <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
                     <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
-                    <div>These are your locations:</div>
-                    {!locationField ?
-                        <div>None selected</div> :
-                        <ul>
-                            {records.map(record =>
-                                <li key={record.id}>{record.getCellValue(locationField)}</li>
-                            )}
-                        </ul>
-                    }
                     {locationField &&
-                        <Button
-                            onClick={nextPage}
-                        >
-                            Next
-                        </Button>
+                        <>
+                            <div>These are your addresses:</div>
+                            <ul>
+                                {records.map(record =>
+                                    <li key={record.id}>{record.getCellValue(locationField)}</li>
+                                )}
+                            </ul>
+                            <Button
+                                onClick={nextPage}
+                            >
+                                Next
+                            </Button>
+                        </>
                     }
                 </div>
             );
@@ -203,7 +202,7 @@ function App() {
         case 1: {
             return (
                 <div>
-                    <Heading>Next, convert your addresses to Google Map coordinates.</Heading>
+                    <Heading>Next, convert your addresses to map coordinates.</Heading>
                     <div>In order to do this, we will need your Google Maps API key.</div>
                     <Input
                         placeholder="Google Maps API Key"
@@ -243,18 +242,17 @@ function App() {
                     >
                         Fetch {records.length} coordinates from Google Maps
                     </Button>
-                    <div>Once your addresses have been geocoded they will be shown on a map below.</div>
-                    <div id="map" style={{ width: '100%', height: '400px' }} />
                     {latLngs.length > 0 &&
-                        <div>
-                            <div>If the map looks good, go on to the next step.</div>
+                        <>
+                            <div>Your addresses have been geocoded! If the map below looks good, go on to the next step.</div>
                             <Button
                                 onClick={nextPage}
                             >
                                 Next
                             </Button>
-                        </div>
+                        </>
                     }
+                    <div id="map" style={{ width: '100%', height: '400px' }} />
                 </div>
             );
         }
