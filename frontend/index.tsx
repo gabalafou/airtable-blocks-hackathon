@@ -302,7 +302,8 @@ function App() {
                                 id="league-size-input"
                                 type="number"
                                 step={1}
-                                max={records.length}
+                                min={1}
+                                max={records.length - 1}
                                 value={String(groupSize)}
                                 onChange={({ currentTarget: { value } }) => {
                                     if (value) {
