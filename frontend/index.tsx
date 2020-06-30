@@ -65,7 +65,7 @@ async function geocodeAddresses(apiKey, addresses) {
     return Promise.all(latLngPromises);
 }
 
-async function createDistanceTable(apiKey, records, latLngs) {
+async function createDistanceTable(apiKey, recordsToLatLngs) {
     if (!googleMapsLoaded) {
         googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
     }
@@ -73,6 +73,9 @@ async function createDistanceTable(apiKey, records, latLngs) {
     await googleMapsLoaded;
 
     const distanceTable = {};
+    const records = Array.from(recordsToLatLngs.keys())
+    const latLngs = Array.from(recordsToLatLngs.values());
+
     records.forEach(rec => distanceTable[rec.id] = {});
 
     const origins = latLngs;
@@ -109,6 +112,40 @@ async function createDistanceTable(apiKey, records, latLngs) {
 }
 
 
+async function updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs) {
+    if (!googleMapsLoaded) {
+        googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
+    }
+
+    await googleMapsLoaded;
+
+    console.log('going to try to draw map now');
+
+    const map = new google.maps.Map(document.getElementById('map-grouped'), {
+        mapTypeId: 'roadmap',
+    });
+    const bounds = new google.maps.LatLngBounds();
+
+    optimalPartition.forEach((group, index) => {
+        group.forEach(record => {
+            const latLng = recordsToLatLngs.get(record);
+            console.log('latLng', latLng);
+            new google.maps.Marker({
+                map: map,
+                position: latLng,
+                label: String(index + 1),
+            });
+            bounds.extend(latLng);
+        });
+
+    });
+
+    console.log('finished adding markers for all addresses');
+
+    map.fitBounds(bounds);
+}
+
+
 
 function App() {
     const base = useBase();
@@ -121,7 +158,7 @@ function App() {
     const [distanceTable, setDistanceTable] = useState(null);
     const [optimalPartition, setOptimalPartition] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
-    const [latLngs, setLatLngs] = useState([]);
+    const [recordsToLatLngs, setRecordsToLatLngs] = useState(new Map());
 
     const table = base.getTableByIdIfExists(tableId as string);
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
@@ -170,7 +207,11 @@ function App() {
 
     const nextPage = () => setPageIndex(pageIndex + 1);
 
-    let latLngByRecordId = {};
+    useEffect(() => {
+        if (pageIndex === 3) {
+            updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs);
+        }
+    }, [pageIndex, optimalPartition]);
 
     switch (pageIndex) {
         default:
@@ -233,16 +274,17 @@ function App() {
 
                                 map.fitBounds(bounds);
 
-                                setLatLngs(latLngs);
+                                const latLngByRecord = new Map();
                                 latLngs.forEach((latLng, index) => {
-                                    latLngByRecordId[records[index].id] = latLng;
+                                    latLngByRecord.set(records[index], latLng);
                                 });
+                                setRecordsToLatLngs(latLngByRecord);
                             });
                         }}
                     >
                         Fetch {records.length} coordinates from Google Maps
                     </Button>
-                    {latLngs.length > 0 &&
+                    {recordsToLatLngs.size > 0 &&
                         <>
                             <div>Your addresses have been geocoded! If the map below looks good, go on to the next step.</div>
                             <Button
@@ -268,7 +310,7 @@ function App() {
                     />
                     <Button
                         onClick={() => {
-                            createDistanceTable(apiKey, records, latLngs)
+                            createDistanceTable(apiKey, recordsToLatLngs)
                                 .then(setDistanceTable);
                         }}
                     >
@@ -316,6 +358,7 @@ function App() {
                     {optimalPartition && <
                         ListSublist list={optimalPartition} />
                     }
+                    <div id="map-grouped" style={{ width: '100%', height: '400px' }} />
                 </div>
             );
         }
