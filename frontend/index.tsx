@@ -89,7 +89,7 @@ async function createDistanceTable(apiKey, recordsToLatLngs) {
             destinations,
             travelMode: 'DRIVING',
         }, (response, status) => {
-            console.log('google maps response', response);
+            console.log('google maps response', response, status);
             if (status == 'OK') {
                 const { rows } = response;
                 latLngs.forEach((loc1, iOuter) => {
