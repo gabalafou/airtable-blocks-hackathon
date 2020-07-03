@@ -4,6 +4,7 @@ import {
     useBase,
     useGlobalConfig,
     useRecords,
+    useSynced,
     TablePickerSynced,
     ViewPickerSynced,
     loadScriptFromURLAsync,
@@ -12,8 +13,6 @@ import {
     Button,
 } from '@airtable/blocks/ui';
 import React, { useState } from 'react';
-
-const GABRIELS_GOOGLE_MAPS_API_KEY = 'AIzaSyAliMN_wq1l8QSEwyKgQcUsTaaBuZus5Ck';
 
 let googleMapsLoaded;
 
@@ -83,7 +82,7 @@ function DistanceMatrixApp() {
     const tableId = globalConfig.get('selectedTableId');
     const viewId = globalConfig.get('selectedViewId');
     const locationFieldId = globalConfig.get('locationFieldId');
-    const [apiKey, setApiKey] = useState(GABRIELS_GOOGLE_MAPS_API_KEY);
+    const [apiKey, setApiKey, canSetApiKey] = useSynced('googleMapsApiKey') as [string, (string) => void, boolean];
     const [distanceTable, setDistanceTable] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
 
@@ -111,6 +110,7 @@ function DistanceMatrixApp() {
                             placeholder="Google Maps API Key"
                             value={apiKey}
                             onChange={event => setApiKey(event.currentTarget.value)}
+                            disabled={!canSetApiKey}
                         />
                     </>}
                     {apiKey &&
