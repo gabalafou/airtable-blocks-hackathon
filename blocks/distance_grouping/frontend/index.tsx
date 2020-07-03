@@ -88,7 +88,8 @@ function App() {
         if (distanceTable && groupSize) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, groupSize);
-            const partitionScores = allPartitions.map(partition => scorePartition(distanceTable, partition));
+            const validPartitions = allPartitions.filter(isValidPartition);
+            const partitionScores = validPartitions.map(partition => scorePartition(distanceTable, partition));
             const minimumScore = Math.min(...partitionScores);
             const indexMinimum = partitionScores.indexOf(minimumScore);
             setOptimalPartition(allPartitions[indexMinimum]);
@@ -234,6 +235,13 @@ function scorePartition(distanceTable, partition) {
         });
         return score + distanceSum;
     }, 0)
+}
+
+// reject partitions where the group sizes differ by more than 1
+function isValidPartition(partition) {
+    const max = Math.max(...partition.map(group => group.length));
+    const min = Math.min(...partition.map(group => group.length));
+    return Math.abs(max - min) > 1;
 }
 
 function createPartitions(items, size) {
