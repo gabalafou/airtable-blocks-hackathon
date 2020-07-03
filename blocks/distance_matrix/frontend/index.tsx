@@ -12,7 +12,7 @@ import {
     Heading,
     Button,
 } from '@airtable/blocks/ui';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 let googleMapsLoaded;
 
@@ -126,6 +126,7 @@ async function createDistanceTable(apiKey, records, locationField) {
     });
 }
 
+const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
 
 function DistanceMatrixApp() {
     const base = useBase();
@@ -170,6 +171,28 @@ function DistanceMatrixApp() {
             </table>
         );
     };
+
+    useEffect(() => {
+        function handleMessage(event) {
+            if (airtableBlocksOriginRe.test(event.origin) &&
+                event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
+            ) {
+                const response = {
+                    request: event.data,
+                    tableId,
+                    viewId,
+                    distanceTable,
+                };
+                event.source.postMessage(response, event.origin);
+            }
+        }
+        console.log("window.addEventListener('message', handleMessage);");
+        window.addEventListener('message', handleMessage);
+        return function stopListening() {
+            console.log("window.removeEventListener('message', handleMessage);");
+            window.removeEventListener('message', handleMessage);
+        }
+    }, [tableId, viewId, distanceTable]);
 
     switch (pageIndex) {
         default:
