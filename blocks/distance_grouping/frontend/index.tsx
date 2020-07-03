@@ -229,9 +229,6 @@ function scorePartition(distanceTable, partition) {
         // }, )
         group.forEach((record1, outerIndex) => {
             group.forEach((record2, innerIndex) => {
-                if (outerIndex === innerIndex) {
-                    return;
-                }
                 distanceSum += distanceTable[record1.id][record2.id];
             });
         });

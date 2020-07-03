@@ -42,37 +42,76 @@ async function createDistanceTable(apiKey, records, locationField) {
 
     records.forEach(rec => distanceTable[rec.id] = {});
 
-    const origins = latLngs;
-    console.log({ origins })
-    const destinations = latLngs;
+    // work through the table, working in chunks of size X
+    const requestSizeLimit = 30;
+    let originIndex = 0;
+    let origins = [];
+    let destinations = [];
+    const requestPromises = [];
+
     const service = new google.maps.DistanceMatrixService();
 
-    return new Promise(resolve => {
-        service.getDistanceMatrix({
-            origins,
-            destinations,
-            travelMode: 'DRIVING',
-        }, (response, status) => {
-            console.log('google maps response', response, status);
-            if (status == 'OK') {
-                const { rows } = response;
-                latLngs.forEach((loc1, iOuter) => {
-                    const { elements } = rows[iOuter];
-                    latLngs.forEach((loc2, iInner) => {
-                        if (iOuter === iInner) {
-                            return;
+    recordsToLatLngs.forEach((...origin) => {
+        let destinationIndex = 0;
+        origins.push(origins[0]); // push origin latLng
+        recordsToLatLngs.forEach((...destination) => {
+            destinations.push(destination[0]);
+            const isAtEnd = destinationIndex === recordsToLatLngs.size - 1;
+            const requestSize = origins.length * destinations.length;
+            const sizeIncreaseOfAddingAnotherOrigin = destinations.length;
+            const shouldFlush =
+                (isAtEnd && (requestSize + sizeIncreaseOfAddingAnotherOrigin) > requestSizeLimit) ||
+                requestSize === requestSizeLimit;
+
+            if (shouldFlush) {
+                requestPromises.push(new Promise(resolve => {
+                    service.getDistanceMatrix({
+                        origins,
+                        destinations,
+                        travelMode: 'DRIVING',
+                    }, (response, status) => {
+                        console.log('google maps response', response, status);
+                        if (status == 'OK') {
+                            const { rows } = response;
+
+                            rows.forEach((row, i) => {
+                                const { elements } = row;
+                                const distanceTableRowIndex = originIndex - i;
+                                elements.forEach((element, j) => {
+                                    const distanceTableColumnIndex = destinationIndex - j;
+                                    distanceTable[distanceTableRowIndex][distanceTableColumnIndex] =
+                                        element.distance.value;
+                                });
+                            })
+
+                            // latLngs.forEach((loc1, iOuter) => {
+                            //     const { elements } = rows[iOuter];
+                            //     latLngs.forEach((loc2, iInner) => {
+                            //         if (iOuter === iInner) {
+                            //             return;
+                            //         }
+                            //         const distance = elements[iInner].distance.value;
+
+                            //         distanceTable[records[iOuter].id][records[iInner].id] = distance;
+                            //     });
+                            // });
                         }
-                        const distance = elements[iInner].distance.value;
-
-                        distanceTable[records[iOuter].id][records[iInner].id] = distance;
+                        resolve([response, status]);
                     });
-                });
+                }));
 
-                console.log('Distance Table', distanceTable);
-                resolve(distanceTable);
+                origins = [];
+                destinations = [];
             }
+            destinationIndex++;
         });
-    })
+        originIndex++;
+    });
+
+    return Promise.all(requestPromises).then(responses => {
+        console.log('all distance matrix api responses', responses);
+        return distanceTable;
+    });
 }
 
 
