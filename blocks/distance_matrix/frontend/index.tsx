@@ -43,7 +43,7 @@ async function createDistanceTable(apiKey, records, locationField) {
     records.forEach(rec => distanceTable[rec.id] = {});
 
     // work through the table, working in chunks of size X
-    const requestSizeLimit = 30;
+    const requestSizeLimit = 23;
     let originIndex = 0;
     let origins = [];
     let destinations = [];
@@ -53,15 +53,20 @@ async function createDistanceTable(apiKey, records, locationField) {
 
     recordsToLatLngs.forEach((...origin) => {
         let destinationIndex = 0;
-        origins.push(origins[0]); // push origin latLng
+        origins.push(origin[0]); // push origin latLng
         recordsToLatLngs.forEach((...destination) => {
-            destinations.push(destination[0]);
-            const isAtEnd = destinationIndex === recordsToLatLngs.size - 1;
+            if (destinations.length < recordsToLatLngs.size) {
+                destinations.push(destination[0]);
+            }
+            const isAtEndOfRow = destinationIndex === recordsToLatLngs.size - 1;
             const requestSize = origins.length * destinations.length;
-            const sizeIncreaseOfAddingAnotherOrigin = destinations.length;
-            const shouldFlush =
-                (isAtEnd && (requestSize + sizeIncreaseOfAddingAnotherOrigin) > requestSizeLimit) ||
-                requestSize === requestSizeLimit;
+            let shouldFlush = false;
+            if (isAtEndOfRow) {
+                const requestSizeWithAnotherRow = requestSize + recordsToLatLngs.size;
+                shouldFlush = requestSizeWithAnotherRow > requestSizeLimit;
+            } else {
+                shouldFlush = requestSize === requestSizeLimit;
+            }
 
             if (shouldFlush) {
                 requestPromises.push(new Promise(resolve => {
@@ -69,18 +74,23 @@ async function createDistanceTable(apiKey, records, locationField) {
                         origins,
                         destinations,
                         travelMode: 'DRIVING',
-                    }, (response, status) => {
+                    }, ((originIndex, destinationIndex) => (response, status) => {
                         console.log('google maps response', response, status);
                         if (status == 'OK') {
                             const { rows } = response;
 
+                            const distanceTableRowStartIndex = originIndex + 1 - rows.length;
                             rows.forEach((row, i) => {
                                 const { elements } = row;
-                                const distanceTableRowIndex = originIndex - i;
+                                const distanceTableRowIndex = distanceTableRowStartIndex + i;
+                                console.log({distanceTableRowIndex});
+                                const rowRecord = records[distanceTableRowIndex]
+                                const distanceTableColumnStartIndex = destinationIndex + 1 - elements.length;
                                 elements.forEach((element, j) => {
-                                    const distanceTableColumnIndex = destinationIndex - j;
-                                    distanceTable[distanceTableRowIndex][distanceTableColumnIndex] =
-                                        element.distance.value;
+                                    const distanceTableColumnIndex = distanceTableColumnStartIndex + j;
+                                    console.log({distanceTableColumnIndex})
+                                    const columnRecord = records[distanceTableColumnIndex];
+                                    distanceTable[rowRecord.id][columnRecord.id] = element.distance.value;
                                 });
                             })
 
@@ -97,10 +107,12 @@ async function createDistanceTable(apiKey, records, locationField) {
                             // });
                         }
                         resolve([response, status]);
-                    });
+                    })(originIndex, destinationIndex));
                 }));
 
-                origins = [];
+                if (isAtEndOfRow) {
+                    origins = [];
+                }
                 destinations = [];
             }
             destinationIndex++;
@@ -133,6 +145,32 @@ function DistanceMatrixApp() {
 
     const recordsById = records && Object.assign({}, ...records.map(record => ({[record.id]: record})));
 
+    const renderDistanceTable = distanceTable => {
+        const recordIds = Object.keys(distanceTable);
+        return (
+            <table>
+                <tr>
+                    <th></th>
+                    {recordIds.map(originRecordId =>
+                        <th key={originRecordId}>
+                            {recordsById[originRecordId].name}
+                        </th>
+                    )}
+                </tr>
+                {recordIds.map((originRecordId) =>
+                    <tr key={originRecordId}>
+                        <th>{recordsById[originRecordId].name}</th>
+                        {recordIds.map((targetRecordId) =>
+                            <td key={targetRecordId}>
+                                {distanceTable[originRecordId][targetRecordId]}
+                            </td>
+                        )}
+                    </tr>
+                )}
+            </table>
+        );
+    };
+
     switch (pageIndex) {
         default:
         case 0: {
@@ -156,42 +194,18 @@ function DistanceMatrixApp() {
                         <Button
                             onClick={() => {
                                 createDistanceTable(apiKey, records, locationField)
+                                    .then(distanceTable => {
+                                        console.log('distanceTable');
+                                        console.log(distanceTable);
+                                        return distanceTable;
+                                    })
                                     .then(setDistanceTable);
                             }}
                         >
                             Fetch distance matrix from Google Maps
                         </Button>
                     }
-                    {distanceTable &&
-                        <table>
-                            <tr>
-                                <th></th>
-                                {Object.keys(distanceTable).map(originRecordId =>
-                                    <th key={originRecordId}>
-                                        {recordsById[originRecordId].name}
-                                    </th>
-                                )}
-                            </tr>
-                            {Object.keys(distanceTable).map((originRecordId, outerIndex, keys) =>
-                                <tr key={originRecordId}>
-                                    <th>{recordsById[originRecordId].name}</th>
-                                    {Object.keys(distanceTable[originRecordId]).map((targetRecordId, innerIndex) =>
-                                        <>
-                                            {outerIndex === innerIndex &&
-                                                <td key={originRecordId}>1</td>
-                                            }
-                                            <td key={targetRecordId}>
-                                                {distanceTable[originRecordId][targetRecordId]}
-                                            </td>
-                                        </>
-                                    )}
-                                    {outerIndex === keys.length &&
-                                        <td key={originRecordId}>1</td>
-                                    }
-                                </tr>
-                            )}
-                        </table>
-                    }
+                    {distanceTable && renderDistanceTable(distanceTable)}
                 </div>
             );
         }
