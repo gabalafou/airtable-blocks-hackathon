@@ -1,4 +1,3 @@
-import { FieldType } from '@airtable/blocks/models';
 import {
     FieldPickerSynced,
     initializeBlock,
@@ -14,7 +13,7 @@ import {
     Heading,
     Button,
 } from '@airtable/blocks/ui';
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 
 // async function createNewTable() {
 //     const name = 'My new table';
@@ -42,139 +41,48 @@ import React, {useState, useEffect} from 'react';
 //     }
 // }
 
-let googleMapsLoaded;
-
-async function geocodeAddresses(apiKey, addresses) {
-    if (!googleMapsLoaded) {
-        googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
-    }
-
-    await googleMapsLoaded;
-
-    const geocoder = new google.maps.Geocoder();
-
-    const latLngPromises = addresses.map(address => new Promise(resolve => {
-        console.log('about to geocode', address);
-        geocoder.geocode({ address }, (results, status) => {
-            console.log('geocoded', address);
-            const latLng = results[0].geometry.location;
-            resolve(latLng);
-        });
-    }));
-
-    return Promise.all(latLngPromises);
-}
-
-async function createDistanceTable(apiKey, recordsToLatLngs) {
-    if (!googleMapsLoaded) {
-        googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
-    }
-
-    await googleMapsLoaded;
-
-    const distanceTable = {};
-    const records = Array.from(recordsToLatLngs.keys())
-    const latLngs = Array.from(recordsToLatLngs.values());
-
-    records.forEach(rec => distanceTable[rec.id] = {});
-
-    const origins = latLngs;
-    console.log({ origins })
-    const destinations = latLngs;
-    const service = new google.maps.DistanceMatrixService();
-
-    return new Promise(resolve => {
-        service.getDistanceMatrix({
-            origins,
-            destinations,
-            travelMode: 'DRIVING',
-        }, (response, status) => {
-            console.log('google maps response', response, status);
-            if (status == 'OK') {
-                const { rows } = response;
-                latLngs.forEach((loc1, iOuter) => {
-                    const { elements } = rows[iOuter];
-                    latLngs.forEach((loc2, iInner) => {
-                        if (iOuter === iInner) {
-                            return;
-                        }
-                        const distance = elements[iInner].distance.value;
-
-                        distanceTable[records[iOuter].id][records[iInner].id] = distance;
-                    });
-                });
-
-                console.log('Distance Table', distanceTable);
-                resolve(distanceTable);
-            }
-        });
-    })
-}
-
-
-async function updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs) {
-    if (!googleMapsLoaded) {
-        googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
-    }
-
-    await googleMapsLoaded;
-
-    console.log('going to try to draw map now');
-
-    const map = new google.maps.Map(document.getElementById('map-grouped'), {
-        mapTypeId: 'roadmap',
-    });
-    const bounds = new google.maps.LatLngBounds();
-
-    optimalPartition.forEach((group, index) => {
-        group.forEach(record => {
-            const latLng = recordsToLatLngs.get(record);
-            console.log('latLng', latLng);
-            new google.maps.Marker({
-                map: map,
-                position: latLng,
-                label: String(index + 1),
-            });
-            bounds.extend(latLng);
-        });
-
-    });
-
-    console.log('finished adding markers for all addresses');
-
-    map.fitBounds(bounds);
-}
-
-
+const BLOCK_CODE = 'com.gabalafou.airtable-block.distance-matrix/test-id';
 
 function App() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
-    const tableId = globalConfig.get('selectedTableId');
-    const viewId = globalConfig.get('selectedViewId');
-    const locationFieldId = globalConfig.get('locationFieldId');
-    const [groupSize, setGroupSize] = useState(1);
-    const [apiKey, setApiKey] = useState('AIzaSyAliMN_wq1l8QSEwyKgQcUsTaaBuZus5Ck');
+
+    const [tableId, setTableId] = useState('');
+    const [viewId, setViewId] = useState('');
     const [distanceTable, setDistanceTable] = useState(null);
+
+    const table = base.getTableByIdIfExists(tableId);
+    const view = table ? table.getViewByIdIfExists(viewId) : null;
+
+    const [blockResultCode, setBlockResultCode] = useState(BLOCK_CODE);
+    const [groupSize, setGroupSize] = useState(1);
     const [optimalPartition, setOptimalPartition] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
-    const [recordsToLatLngs, setRecordsToLatLngs] = useState(new Map());
-
-    const table = base.getTableByIdIfExists(tableId as string);
-    const view = table ? table.getViewByIdIfExists(viewId as string) : null;
-    const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
 
     const records = useRecords(view);
 
     useEffect(() => {
-        if (records && locationField && groupSize) {
-            console.log('testing effect with effect cache [records, locationField, groupSize]', [records, locationField, groupSize]);
+        if (records && groupSize) {
+            console.log('testing effect with effect cache [records, groupSize]', [records, groupSize]);
         }
-    }, [records, locationField, groupSize]);
+    }, [records, groupSize]);
 
-    // TODO: handle errors from Google
-    // could be sign that user has picked wrong field
-
+    useEffect(() => {
+        function handleMessage(event) {
+            if (event && event.data && event.data.request === blockResultCode) {
+                const message = event.data;
+                setTableId(message.tableId);
+                setViewId(message.viewId);
+                setDistanceTable(message.distanceTable);
+            }
+        }
+        console.log('main block', "window.addEventListener('message', handleMessage);");
+        window.addEventListener('message', handleMessage);
+        return function stopListening() {
+            console.log('main block', "window.removeEventListener('message', handleMessage);")
+            window.removeEventListener('message', handleMessage);
+        };
+    }, [blockResultCode]);
 
     useEffect(() => {
         if (distanceTable && groupSize) {
@@ -194,24 +102,14 @@ function App() {
     // For now we'll store this table in memory.
     // TODO: store table in Airtable? store table in global config?
 
-
-
-    // const tasks = records && completedFieldId ? records.map(record =>
-    //     <Task
-    //         key={record.id}
-    //         record={record}
-    //         onToggle={toggle}
-    //         completedFieldId={completedFieldId}
-    //     />
-    // ) : null;
-
     const nextPage = () => setPageIndex(pageIndex + 1);
+    const prevPage = () => setPageIndex(pageIndex - 1);
 
-    useEffect(() => {
-        if (pageIndex === 3) {
-            updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs);
-        }
-    }, [pageIndex, optimalPartition]);
+    // useEffect(() => {
+    //     if (pageIndex === 3) {
+    //         updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs);
+    //     }
+    // }, [pageIndex, optimalPartition]);
 
     switch (pageIndex) {
         default:
@@ -219,17 +117,20 @@ function App() {
             return (
                 <div>
                     <Heading>First, select your addresses.</Heading>
-                    <TablePickerSynced globalConfigKey="selectedTableId" />
-                    <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
-                    <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
-                    {locationField &&
+                    <Label>Enter the result code from running the distance matrix block</Label>
+                    <Input
+                        value={blockResultCode}
+                        onChange={event => setBlockResultCode(event.currentTarget.value)}
+                    />
+                    <Button
+                        onClick={() => {
+                            requestDistanceMatrix(blockResultCode);
+                        }}
+                    >Get Distance Matrix
+                    </Button>
+                    {distanceTable &&
                         <>
-                            <div>These are your addresses:</div>
-                            <ul>
-                                {records.map(record =>
-                                    <li key={record.id}>{record.getCellValue(locationField)}</li>
-                                )}
-                            </ul>
+                            <div>Received distance matrix!</div>
                             <Button
                                 onClick={nextPage}
                             >
@@ -243,122 +144,32 @@ function App() {
         case 1: {
             return (
                 <div>
-                    <Heading>Next, convert your addresses to map coordinates.</Heading>
-                    <div>In order to do this, we will need your Google Maps API key.</div>
-                    <Input
-                        placeholder="Google Maps API Key"
-                        value={apiKey}
-                        onChange={event => setApiKey(event.currentTarget.value)}
-                    />
-                    <Button
-                        onClick={() => {
-                            const addresses = records.map(r => r.getCellValue(locationField));
-                            const latLngs = geocodeAddresses(apiKey, addresses);
-                            latLngs.then(latLngs => {
-                                console.log('going to try to draw map now');
-
-                                const map = new google.maps.Map(document.getElementById('map'), {
-                                    mapTypeId: 'roadmap',
-                                });
-                                const bounds = new google.maps.LatLngBounds();
-
-                                latLngs.forEach(latLng => {
-                                    new google.maps.Marker({
-                                        map: map,
-                                        position: latLng
-                                    });
-                                    bounds.extend(latLng);
-                                });
-
-                                console.log('finished adding markers for all addresses');
-
-                                map.fitBounds(bounds);
-
-                                const latLngByRecord = new Map();
-                                latLngs.forEach((latLng, index) => {
-                                    latLngByRecord.set(records[index], latLng);
-                                });
-                                setRecordsToLatLngs(latLngByRecord);
-                            });
-                        }}
-                    >
-                        Fetch {records.length} coordinates from Google Maps
-                    </Button>
-                    {recordsToLatLngs.size > 0 &&
-                        <>
-                            <div>Your addresses have been geocoded! If the map below looks good, go on to the next step.</div>
-                            <Button
-                                onClick={nextPage}
-                            >
-                                Next
-                            </Button>
-                        </>
-                    }
-                    <div id="map" style={{ width: '100%', height: '400px' }} />
-                </div>
-            );
-        }
-        case 2: {
-            return (
-                <div>
-                    <Heading>Next, calculate all of the distances between your addresses.</Heading>
-                    <div>In order to do this, we will need your Google Maps API key.</div>
-                    <Input
-                        placeholder="Google Maps API Key"
-                        value={apiKey}
-                        onChange={event => setApiKey(event.currentTarget.value)}
-                    />
-                    <Button
-                        onClick={() => {
-                            createDistanceTable(apiKey, recordsToLatLngs)
-                                .then(setDistanceTable);
-                        }}
-                    >
-                        Fetch distance matrix from Google Maps
-                    </Button>
-                    {distanceTable &&
-                        <div>
-                            <div>Created distance table!</div>
-                            <Button
-                                onClick={nextPage}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    }
-                </div>
-            );
-        }
-        case 3: {
-            return (
-                <div>
                     <Heading>Lastly, choose how many groups to divide your addresses into.</Heading>
                     <div>
-                        We'll use the distance table created in the last step to calculate the optimal
+                        We will use the distance table created in the last step to calculate the optimal
                         grouping based on the driving distances between addresses.
                     </div>
-                    {locationField &&
-                        <Box>
-                            <Label htmlFor="league-size">League size (no. teams)</Label>
-                            <Input
-                                id="league-size-input"
-                                type="number"
-                                step={1}
-                                min={1}
-                                max={records.length - 1}
-                                value={String(groupSize)}
-                                onChange={({ currentTarget: { value } }) => {
-                                    if (value) {
-                                        setGroupSize(Number(value));
-                                    }
-                                }}
-                            />
-                        </Box>
-                    }
+                    <Box>
+                        <Label htmlFor="league-size">League size (no. teams)</Label>
+                        <Input
+                            id="league-size-input"
+                            type="number"
+                            step={1}
+                            min={2}
+                            max={records.length - 1}
+                            value={String(groupSize)}
+                            onChange={({ currentTarget: { value } }) => {
+                                if (value) {
+                                    setGroupSize(Number(value));
+                                }
+                            }}
+                        />
+                    </Box>
                     {optimalPartition && <
                         ListSublist list={optimalPartition} />
                     }
-                    <div id="map-grouped" style={{ width: '100%', height: '400px' }} />
+                    {/* <div id="map-grouped" style={{ width: '100%', height: '400px' }} /> */}
+                    <Button onClick={prevPage}>Back</Button>
                 </div>
             );
         }
@@ -369,17 +180,28 @@ initializeBlock(() => <App />);
 
 
 function ListSublist(props) {
-    const {list} = props;
+    const { list } = props;
     return (
         <ul>{list.map((sublist, i) =>
             <li key={i}>
-                Group {i+1}:
+                Group {i + 1}:
                 <ul>{sublist.map(record =>
-                    <li key={record.id}>{record.name}</li>)}
+                <li key={record.id}>{record.name}</li>)}
                 </ul>
             </li>)}
         </ul>
     )
+}
+
+function requestDistanceMatrix(blockResultCode) {
+    for (let i = 0; i < window.parent.frames.length; i++) {
+        const frame = window.parent.frames[i];
+        if (frame === window) {
+            continue;
+        }
+        console.log('posting message with blockResultCode', blockResultCode);
+        frame.postMessage(blockResultCode, '*');
+    }
 }
 
 function parseLocation(loc) {
@@ -396,7 +218,7 @@ function calculateDistance(p1, p2) {
     const b = p2x - p1x;
 
     // Pythagoras: c^2 = sqrt(a^2 + b^2)
-    return Math.sqrt( (a ** 2) + (b ** 2) );
+    return Math.sqrt((a ** 2) + (b ** 2));
 }
 
 function scorePartition(distanceTable, partition) {
