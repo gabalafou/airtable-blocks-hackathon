@@ -241,7 +241,7 @@ function scorePartition(distanceTable, partition) {
 function isValidPartition(partition) {
     const max = Math.max(...partition.map(group => group.length));
     const min = Math.min(...partition.map(group => group.length));
-    return Math.abs(max - min) > 1;
+    return Math.abs(max - min) <= 1;
 }
 
 function createPartitions(items, size) {
