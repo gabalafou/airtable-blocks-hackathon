@@ -15,31 +15,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 import Settings from './settings';
 
-// async function createNewTable() {
-//     const name = 'My new table';
-//     const fields = [
-//         // Name will be the primary field of the table.
-//         { name: 'Name', type: FieldType.SINGLE_LINE_TEXT },
-//         { name: 'Notes', type: FieldType.RICH_TEXT },
-//         { name: 'Attachments', type: FieldType.MULTIPLE_ATTACHMENTS },
-//         {
-//             name: 'Number', type: FieldType.NUMBER, options: {
-//                 precision: 8,
-//             }
-//         },
-//         {
-//             name: 'Select', type: FieldType.SINGLE_SELECT, options: {
-//                 choices: [
-//                     { name: 'A' },
-//                     { name: 'B' },
-//                 ],
-//             }
-//         },
-//     ];
-//     if (base.unstable_hasPermissionToCreateTable(name, fields)) {
-//         await base.unstable_createTableAsync(name, fields);
-//     }
-// }
 
 const BATCH_SIZE = 50;
 async function batchUpdateRecords(table, updates) {
