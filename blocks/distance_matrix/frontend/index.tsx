@@ -226,10 +226,10 @@ function DistanceMatrixApp() {
     });
 
     if (isShowingSettings) {
-        return <Settings onDone={() => setIsShowingSettings(false)} />
+        return <Settings onDone={() => setIsShowingSettings(false)} />;
     }
 
-    return <Main />
+    return <Main />;
 }
 
 function Main() {
