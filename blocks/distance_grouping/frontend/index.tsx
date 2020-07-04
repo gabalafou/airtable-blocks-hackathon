@@ -47,12 +47,12 @@ async function addChoicesToSelectField(selectField, choices) {
 function DistanceGroupingApp() {
     const [isShowingSettings, setIsShowingSettings] = useState(false);
 
-    useSettingsButton(function () {
+    useSettingsButton(function toggleSettings() {
         setIsShowingSettings(!isShowingSettings);
     });
 
     if (isShowingSettings) {
-        return <Settings onDone={() => setIsShowingSettings(false)} />;
+        return <Settings onDone={() => void setIsShowingSettings(false)} />;
     }
 
     return <Main />;

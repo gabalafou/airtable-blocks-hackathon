@@ -221,12 +221,12 @@ const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^ht
 function DistanceMatrixApp() {
     const [isShowingSettings, setIsShowingSettings] = useState(false);
 
-    useSettingsButton(function () {
+    useSettingsButton(function toggleSettings() {
         setIsShowingSettings(!isShowingSettings);
     });
 
     if (isShowingSettings) {
-        return <Settings onDone={() => setIsShowingSettings(false)} />;
+        return <Settings onDone={() => void setIsShowingSettings(false)} />;
     }
 
     return <Main />;
