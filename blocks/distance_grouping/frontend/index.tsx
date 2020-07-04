@@ -87,6 +87,7 @@ function App() {
 
     const [blockResultCode, setBlockResultCode] = useState(BLOCK_CODE);
     const [groupSize, setGroupSize] = useState(1);
+    const [shouldEqualizeGroups, setShouldEqualizeGroups] = useState(true);
     const [pageIndex, setPageIndex] = useState(0);
 
     const [groupField, setGroupField] = useState(null);
@@ -167,18 +168,13 @@ function App() {
         };
     }, [blockResultCode]);
 
-    useEffect(() => {
-
-        // Do NOT add `records` to the array below or the setOptimalPartition call
-        // will kick off an endless loop of re-setting `records`, calling this effect,
-        // calling setOptimalPartition(), and so on and so forth.
-    }, [distanceTable, groupSize]);
-
     const optimalPartition = useMemo(() => {
         if (distanceTable && groupSize) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, groupSize);
-            const validPartitions = allPartitions.filter(isValidPartition);
+            const validPartitions = shouldEqualizeGroups ?
+                allPartitions.filter(isValidPartition) :
+                allPartitions;
             const partitionScores = validPartitions.map(partition => scorePartition(distanceTable, partition));
             const minimumScore = Math.min(...partitionScores);
             const indexMinimum = partitionScores.indexOf(minimumScore);
@@ -187,18 +183,8 @@ function App() {
         }
     }, [distanceTable, groupSize])
 
-    // Create table of distances between each pair of locations
-    // For now we'll store this table in memory.
-    // TODO: store table in Airtable? store table in global config?
-
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);
-
-    // useEffect(() => {
-    //     if (pageIndex === 3) {
-    //         updateGroupedMap(apiKey, optimalPartition, recordsToLatLngs);
-    //     }
-    // }, [pageIndex, optimalPartition]);
 
     switch (pageIndex) {
         default:
@@ -237,27 +223,27 @@ function App() {
         case 1: {
             return (
                 <div>
-                    <Heading>Lastly, choose how many groups to divide your addresses into.</Heading>
-                    <div>
-                        We will use the distance table created in the last step to calculate the optimal
-                        grouping based on the driving distances between addresses.
-                    </div>
-                    <Box>
-                        <Label htmlFor="league-size">League size (no. teams)</Label>
-                        <Input
-                            id="league-size-input"
-                            type="number"
-                            step={1}
-                            min={2}
-                            max={records.length - 1}
-                            value={String(groupSize)}
-                            onChange={({ currentTarget: { value } }) => {
-                                if (value) {
-                                    setGroupSize(Number(value));
-                                }
-                            }}
-                        />
-                    </Box>
+                    <Label htmlFor="league-size-input">League size (no. teams)</Label>
+                    <Input
+                        id="league-size-input"
+                        type="number"
+                        step={1}
+                        min={2}
+                        max={records.length - 1}
+                        value={String(groupSize)}
+                        onChange={({ currentTarget: { value } }) => {
+                            if (value) {
+                                setGroupSize(Number(value));
+                            }
+                        }}
+                    />
+                    <input
+                        id="equalize-group-checkbox"
+                        type="checkbox"
+                        checked={shouldEqualizeGroups}
+                        onChange={event => setShouldEqualizeGroups(event.currentTarget.checked)}
+                    />
+                    <Label htmlFor="equalize-group-checkbox">Equalize groups</Label>
                     {optimalPartition &&
                         <>
                             <ListSublist list={optimalPartition} />
