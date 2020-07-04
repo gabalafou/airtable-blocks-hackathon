@@ -58,14 +58,13 @@ function DistanceGroupingApp() {
     return <Main />;
 }
 
-const shouldUseMockDistanceTable = true;
-
 function Main() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
 
     const blockResultCode = globalConfig.get('blockResultCode');
 
+    const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(true);
     const [tableId, setTableId] = useState(shouldUseMockDistanceTable ? 'tblm9dueBPkf4dvCO' : '');
     const [viewId, setViewId] = useState(shouldUseMockDistanceTable ? 'viw5cGnD9Xggf6hkV' : '');
     let [distanceTable, setDistanceTable] = useState(null);
@@ -175,27 +174,40 @@ function Main() {
         case 0: {
             return (
                 <div>
-                    <Label htmlFor="league-size-input">League size (no. teams)</Label>
-                    <Input
-                        id="league-size-input"
-                        type="number"
-                        step={1}
-                        min={2}
-                        max={records.length - 1}
-                        value={String(groupSize)}
-                        onChange={({ currentTarget: { value } }) => {
-                            if (value) {
-                                setGroupSize(Number(value));
-                            }
-                        }}
-                    />
-                    <input
-                        id="equalize-group-checkbox"
-                        type="checkbox"
-                        checked={shouldEqualizeGroups}
-                        onChange={event => setShouldEqualizeGroups(event.currentTarget.checked)}
-                    />
-                    <Label htmlFor="equalize-group-checkbox">Equalize groups</Label>
+                    <div>
+                        <input
+                            id="mock-distance-matrix-checkbox"
+                            type="checkbox"
+                            checked={shouldUseMockDistanceTable}
+                            onChange={event => setShouldUseMockDistanceTable(event.currentTarget.checked)}
+                        />
+                        <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
+                    </div>
+                    <div>
+                        <Label htmlFor="league-size-input">League size (no. teams)</Label>
+                        <Input
+                            id="league-size-input"
+                            type="number"
+                            step={1}
+                            min={2}
+                            max={records.length - 1}
+                            value={String(groupSize)}
+                            onChange={({ currentTarget: { value } }) => {
+                                if (value) {
+                                    setGroupSize(Number(value));
+                                }
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <input
+                            id="equalize-group-checkbox"
+                            type="checkbox"
+                            checked={shouldEqualizeGroups}
+                            onChange={event => setShouldEqualizeGroups(event.currentTarget.checked)}
+                        />
+                        <Label htmlFor="equalize-group-checkbox">Equalize groups</Label>
+                    </div>
                     {optimalPartition &&
                         <>
                             <ListSublist list={optimalPartition} />
