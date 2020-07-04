@@ -14,8 +14,11 @@ import {
     Button,
     FieldPicker,
     colors,
+    useSettingsButton,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect, useMemo } from 'react';
+
+import Settings from './settings';
 
 // async function createNewTable() {
 //     const name = 'My new table';
@@ -42,8 +45,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 //         await base.unstable_createTableAsync(name, fields);
 //     }
 // }
-
-const BLOCK_CODE = 'com.gabalafou.airtable-block.distance-matrix/test-id';
 
 const BATCH_SIZE = 50;
 async function batchUpdateRecords(table, updates) {
@@ -73,25 +74,42 @@ async function addChoicesToSelectField(selectField, choices) {
     }
 }
 
-function App() {
+function DistanceGroupingApp() {
+    const [isShowingSettings, setIsShowingSettings] = useState(false);
+
+    useSettingsButton(function () {
+        setIsShowingSettings(!isShowingSettings);
+    });
+
+    if (isShowingSettings) {
+        return <Settings onDone={() => setIsShowingSettings(false)} />;
+    }
+
+    return <Main />;
+}
+
+const shouldUseMockDistanceTable = true;
+
+function Main() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
 
-    const [tableId, setTableId] = useState('');
-    const [viewId, setViewId] = useState('');
+    const blockResultCode = globalConfig.get('blockResultCode');
+
+    const [tableId, setTableId] = useState(shouldUseMockDistanceTable ? 'tblm9dueBPkf4dvCO' : '');
+    const [viewId, setViewId] = useState(shouldUseMockDistanceTable ? 'viw5cGnD9Xggf6hkV' : '');
     let [distanceTable, setDistanceTable] = useState(null);
-    const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(false);
 
     const table = base.getTableByIdIfExists(tableId);
     const view = table ? table.getViewByIdIfExists(viewId) : null;
 
-    const [blockResultCode, setBlockResultCode] = useState(BLOCK_CODE);
     const [groupSize, setGroupSize] = useState(1);
     const [shouldEqualizeGroups, setShouldEqualizeGroups] = useState(true);
     const [pageIndex, setPageIndex] = useState(0);
 
     const [groupField, setGroupField] = useState(null);
     // const groupField = (table && groupFieldId) ? table.getFieldById(groupFieldId) : null;
+
 
     if (groupField) {
         console.log('groupField.options', groupField.options);
@@ -162,6 +180,7 @@ function App() {
         }
         console.log('main block', "window.addEventListener('message', handleMessage);");
         window.addEventListener('message', handleMessage);
+        requestDistanceMatrix(blockResultCode);
         return function stopListening() {
             console.log('main block', "window.removeEventListener('message', handleMessage);")
             window.removeEventListener('message', handleMessage);
@@ -186,41 +205,11 @@ function App() {
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);
 
+    // TODO? - logic to disable inputs
+
     switch (pageIndex) {
         default:
         case 0: {
-            return (
-                <div>
-                    <Heading>First, select your addresses.</Heading>
-                    <Label>Enter the result code from running the distance matrix block</Label>
-                    <Input
-                        value={blockResultCode}
-                        onChange={event => setBlockResultCode(event.currentTarget.value)}
-                    />
-                    <Button
-                        onClick={() => {
-                            // requestDistanceMatrix(blockResultCode);
-
-                            setTableId('tblm9dueBPkf4dvCO');
-                            setViewId('viw5cGnD9Xggf6hkV');
-                            setShouldUseMockDistanceTable(true);
-                        }}
-                    >Get Distance Matrix
-                    </Button>
-                    {distanceTable &&
-                        <>
-                            <div>Received distance matrix!</div>
-                            <Button
-                                onClick={nextPage}
-                            >
-                                Next
-                            </Button>
-                        </>
-                    }
-                </div>
-            );
-        }
-        case 1: {
             return (
                 <div>
                     <Label htmlFor="league-size-input">League size (no. teams)</Label>
@@ -261,16 +250,13 @@ function App() {
                             }
                         </>
                     }
-
-                    {/* <div id="map-grouped" style={{ width: '100%', height: '400px' }} /> */}
-                    <Button onClick={prevPage}>Back</Button>
                 </div>
             );
         }
     }
 }
 
-initializeBlock(() => <App />);
+initializeBlock(() => <DistanceGroupingApp />);
 
 
 function createMockDistanceTable(origins, destinations) {
