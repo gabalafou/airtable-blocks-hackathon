@@ -84,6 +84,8 @@ function Main() {
     distanceTable = useMemo(() => {
         if (records && shouldUseMockDistanceTable) {
             return createMockDistanceTable(records, records);
+        } else {
+            return distanceTable;
         }
     }, [records, shouldUseMockDistanceTable])
 
@@ -133,6 +135,7 @@ function Main() {
 
     useEffect(() => {
         function handleMessage(event) {
+            console.log('main block, received message', event.data);
             if (event && event.data && event.data.request === blockResultCode) {
                 const message = event.data;
                 setTableId(message.tableId);
@@ -147,9 +150,10 @@ function Main() {
             console.log('main block', "window.removeEventListener('message', handleMessage);")
             window.removeEventListener('message', handleMessage);
         };
-    }, [blockResultCode]);
+    }, [blockResultCode, shouldUseMockDistanceTable]);
 
     const optimalPartition = useMemo(() => {
+        console.log('running optimal partition memo function');
         if (distanceTable && groupSize) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, groupSize);
@@ -162,7 +166,7 @@ function Main() {
 
             return allPartitions[indexMinimum];
         }
-    }, [distanceTable, groupSize])
+    }, [distanceTable, groupSize]);
 
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);

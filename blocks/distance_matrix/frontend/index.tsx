@@ -286,19 +286,21 @@ function Main() {
             if (airtableBlocksOriginRe.test(event.origin) &&
                 event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
             ) {
+                console.log('received data request', event.data);
                 const response = {
                     request: event.data,
                     tableId,
                     viewId,
                     distanceTable,
                 };
+                console.log('sending response', response);
                 event.source.postMessage(response, event.origin);
             }
         }
-        console.log("window.addEventListener('message', handleMessage);");
+        console.log("distance_matrix window.addEventListener('message', handleMessage);");
         window.addEventListener('message', handleMessage);
         return function stopListening() {
-            console.log("window.removeEventListener('message', handleMessage);");
+            console.log("distance_matrix window.removeEventListener('message', handleMessage);");
             window.removeEventListener('message', handleMessage);
         }
     }, [tableId, viewId, distanceTable]);
