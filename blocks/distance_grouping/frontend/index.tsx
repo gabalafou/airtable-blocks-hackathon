@@ -18,10 +18,10 @@ import Settings from './settings';
 
 const BATCH_SIZE = 50;
 async function batchUpdateRecords(table, updates) {
-    // if (table.hasPermissionToUpdateRecords(updates)) {
-    //     console.error('No permission to update');
-    //     return;
-    // }
+    if (table.hasPermissionToUpdateRecords(updates)) {
+        console.error('No permission to update');
+        return;
+    }
     let i = 0;
     while (i < updates.length) {
         const recordBatch = updates.slice(i, i + BATCH_SIZE);
@@ -72,18 +72,11 @@ function Main() {
 
     const table = base.getTableByIdIfExists(tableId);
     const view = table ? table.getViewByIdIfExists(viewId) : null;
+    const [groupField, setGroupField] = useState(null);
 
     const [groupSize, setGroupSize] = useState(1);
     const [shouldEqualizeGroups, setShouldEqualizeGroups] = useState(true);
     const [pageIndex, setPageIndex] = useState(0);
-
-    const [groupField, setGroupField] = useState(null);
-    // const groupField = (table && groupFieldId) ? table.getFieldById(groupFieldId) : null;
-
-
-    if (groupField) {
-        console.log('groupField.options', groupField.options);
-    }
 
     const records = useRecords(view);
 
