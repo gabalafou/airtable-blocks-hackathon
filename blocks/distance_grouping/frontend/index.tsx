@@ -1,19 +1,21 @@
+import { FieldType } from '@airtable/blocks/models';
 import {
-    FieldPickerSynced,
     initializeBlock,
     useBase,
     useGlobalConfig,
     useRecords,
     TablePickerSynced,
     ViewPickerSynced,
-    loadScriptFromURLAsync,
+    FieldPickerSynced,
     Box,
     Input,
     Label,
     Heading,
     Button,
+    FieldPicker,
+    colors,
 } from '@airtable/blocks/ui';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 // async function createNewTable() {
 //     const name = 'My new table';
@@ -43,23 +45,104 @@ import React, { useState, useEffect } from 'react';
 
 const BLOCK_CODE = 'com.gabalafou.airtable-block.distance-matrix/test-id';
 
+const BATCH_SIZE = 50;
+async function batchUpdateRecords(table, updates) {
+    // if (table.hasPermissionToUpdateRecords(updates)) {
+    //     console.error('No permission to update');
+    //     return;
+    // }
+    let i = 0;
+    while (i < updates.length) {
+        const recordBatch = updates.slice(i, i + BATCH_SIZE);
+        // awaiting the delete means that next batch won't be deleted until the current
+        // batch has been fully deleted, keeping you under the rate limit
+        await table.updateRecordsAsync(recordBatch);
+        i += BATCH_SIZE;
+    }
+}
+
+async function addChoicesToSelectField(selectField, choices) {
+    const updatedOptions = {
+        choices: [
+            ...selectField.options.choices,
+            ...choices,
+        ]
+    };
+    if (selectField.unstable_hasPermissionToUpdateOptions(updatedOptions)) {
+        await selectField.unstable_updateOptionsAsync(updatedOptions);
+    }
+}
+
 function App() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
 
     const [tableId, setTableId] = useState('');
     const [viewId, setViewId] = useState('');
-    const [distanceTable, setDistanceTable] = useState(null);
+    let [distanceTable, setDistanceTable] = useState(null);
+    const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(false);
 
     const table = base.getTableByIdIfExists(tableId);
     const view = table ? table.getViewByIdIfExists(viewId) : null;
 
     const [blockResultCode, setBlockResultCode] = useState(BLOCK_CODE);
     const [groupSize, setGroupSize] = useState(1);
-    const [optimalPartition, setOptimalPartition] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
 
+    const [groupField, setGroupField] = useState(null);
+    // const groupField = (table && groupFieldId) ? table.getFieldById(groupFieldId) : null;
+
+    if (groupField) {
+        console.log('groupField.options', groupField.options);
+    }
+
     const records = useRecords(view);
+
+    console.log('render, recordIds', records && records.map(({id}) => id));
+
+    distanceTable = useMemo(() => {
+        if (records && shouldUseMockDistanceTable) {
+            return createMockDistanceTable(records, records);
+        }
+    }, [records, shouldUseMockDistanceTable])
+
+    const savePartition = async () => {
+        const updates = [];
+        const colorArray = Object.keys(colors)
+            .filter(colorStr => colorStr.includes('_'))
+            .sort((a, b) => a.length - b.length);
+        console.log(colorArray);
+
+        const choices = [];
+        for (let i = 0; i < optimalPartition.length; i++) {
+            choices.push({
+                name: String(i + 1),
+                color: colors[colorArray[i]],
+            })
+        }
+        const unsavedChoices = choices.filter(choice =>
+            !groupField.options.choices.some(savedChoice => {
+                savedChoice.name === choice.name
+            })
+        );
+        console.log('unsavedChocies', unsavedChoices);
+        if (unsavedChoices.length) {
+            await addChoicesToSelectField(groupField, unsavedChoices);
+        }
+
+        optimalPartition.forEach((group, index) => {
+            const groupNumber = index + 1;
+            group.forEach(record => {
+                updates.push({
+                    id: record.id,
+                    fields: {
+                        [groupField.id]: {name: String(groupNumber)}
+                    }
+                });
+            });
+        });
+        batchUpdateRecords(table, updates);
+    }
 
     useEffect(() => {
         if (records && groupSize) {
@@ -85,6 +168,13 @@ function App() {
     }, [blockResultCode]);
 
     useEffect(() => {
+
+        // Do NOT add `records` to the array below or the setOptimalPartition call
+        // will kick off an endless loop of re-setting `records`, calling this effect,
+        // calling setOptimalPartition(), and so on and so forth.
+    }, [distanceTable, groupSize]);
+
+    const optimalPartition = useMemo(() => {
         if (distanceTable && groupSize) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, groupSize);
@@ -92,12 +182,10 @@ function App() {
             const partitionScores = validPartitions.map(partition => scorePartition(distanceTable, partition));
             const minimumScore = Math.min(...partitionScores);
             const indexMinimum = partitionScores.indexOf(minimumScore);
-            setOptimalPartition(allPartitions[indexMinimum]);
+
+            return allPartitions[indexMinimum];
         }
-        // Do NOT add `records` to the array below or the setOptimalPartition call
-        // will kick off an endless loop of re-setting `records`, calling this effect,
-        // calling setOptimalPartition(), and so on and so forth.
-    }, [distanceTable, groupSize]);
+    }, [distanceTable, groupSize])
 
     // Create table of distances between each pair of locations
     // For now we'll store this table in memory.
@@ -125,7 +213,11 @@ function App() {
                     />
                     <Button
                         onClick={() => {
-                            requestDistanceMatrix(blockResultCode);
+                            // requestDistanceMatrix(blockResultCode);
+
+                            setTableId('tblm9dueBPkf4dvCO');
+                            setViewId('viw5cGnD9Xggf6hkV');
+                            setShouldUseMockDistanceTable(true);
                         }}
                     >Get Distance Matrix
                     </Button>
@@ -166,9 +258,24 @@ function App() {
                             }}
                         />
                     </Box>
-                    {optimalPartition && <
-                        ListSublist list={optimalPartition} />
+                    {optimalPartition &&
+                        <>
+                            <ListSublist list={optimalPartition} />
+                            <div>Save results</div>
+                            <FieldPicker
+                                table={table}
+                                field={groupField}
+                                allowedTypes={[FieldType.SINGLE_SELECT]}
+                                onChange={field => {
+                                    setGroupField(field);
+                                }}
+                            />
+                            {groupField &&
+                                <Button onClick={savePartition}>Save</Button>
+                            }
+                        </>
                     }
+
                     {/* <div id="map-grouped" style={{ width: '100%', height: '400px' }} /> */}
                     <Button onClick={prevPage}>Back</Button>
                 </div>
@@ -178,6 +285,21 @@ function App() {
 }
 
 initializeBlock(() => <App />);
+
+
+function createMockDistanceTable(origins, destinations) {
+    const distanceTable = {};
+    origins.forEach(origin => {
+        distanceTable[origin.id] = {};
+        destinations.forEach(destination => {
+            distanceTable[origin.id][destination.id] = Math.random() * 100;
+        });
+    });
+    return distanceTable;
+}
+
+
+
 
 
 function ListSublist(props) {
