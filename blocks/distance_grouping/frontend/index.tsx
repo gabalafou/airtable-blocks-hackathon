@@ -228,8 +228,8 @@ function scorePartition(distanceTable, partition) {
         // group.reduce((distanceSum, record, index) => {
 
         // }, )
-        group.forEach((record1, outerIndex) => {
-            group.forEach((record2, innerIndex) => {
+        group.forEach((record1) => {
+            group.forEach((record2) => {
                 distanceSum += distanceTable[record1.id][record2.id];
             });
         });
