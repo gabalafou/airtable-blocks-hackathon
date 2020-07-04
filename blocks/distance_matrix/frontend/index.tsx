@@ -1,18 +1,16 @@
 import {
-    FieldPickerSynced,
     initializeBlock,
     useBase,
     useGlobalConfig,
     useRecords,
     useSynced,
-    TablePickerSynced,
-    ViewPickerSynced,
     loadScriptFromURLAsync,
-    Input,
-    Heading,
     Button,
+    useSettingsButton,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect } from 'react';
+
+import Settings from './settings';
 
 let googleMapsLoaded;
 
@@ -221,12 +219,31 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
 const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
 
 function DistanceMatrixApp() {
+    const [isShowingSettings, setIsShowingSettings] = useState(false);
+
+    useSettingsButton(function () {
+        setIsShowingSettings(!isShowingSettings);
+    });
+
+    if (isShowingSettings) {
+        return <Settings onDone={() => setIsShowingSettings(false)} />
+    }
+
+    return <Main />
+}
+
+function Main() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
     const tableId = globalConfig.get('selectedTableId');
     const viewId = globalConfig.get('selectedViewId');
     const locationFieldId = globalConfig.get('locationFieldId');
-    const [apiKey, setApiKey, canSetApiKey] = useSynced('googleMapsApiKey') as [string, (string) => void, boolean];
+    const apiKey = globalConfig.get('googleMapsApiKey');
+
+    const table = base.getTableByIdIfExists(tableId as string);
+    const view = table ? table.getViewByIdIfExists(viewId as string) : null;
+    const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
+
     const [distanceTable, setDistanceTable, canSetDistanceTable] = useSynced('distanceTable');
     const [statusTable, setStatusTable] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
@@ -234,9 +251,6 @@ function DistanceMatrixApp() {
 
     console.log('distance table', distanceTable);
 
-    const table = base.getTableByIdIfExists(tableId as string);
-    const view = table ? table.getViewByIdIfExists(viewId as string) : null;
-    const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
 
     const records = useRecords(view);
 
@@ -294,24 +308,11 @@ function DistanceMatrixApp() {
         case 0: {
             return (
                 <div>
-                    <Heading>Create a table of distances between your locations.</Heading>
-                    <div>First, select your locations.</div>
-                    <TablePickerSynced globalConfigKey="selectedTableId" />
-                    <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
-                    <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
                     {locationField &&
                         <>
-                            <div>Your distance table needs to be filled in or is missing some entries.</div>
-                            <div>To fill in the distance table below, we will need your Google Maps API key.</div>
-                            <Input
-                                placeholder="Google Maps API Key"
-                                value={apiKey}
-                                onChange={event => setApiKey(event.currentTarget.value)}
-                                disabled={!canSetApiKey}
-                            />
                             <Button
                                 onClick={() => {
-                                    console.log({origins, destinations});
+                                    console.log({ origins, destinations });
                                     getDistanceMatrix(apiKey, origins, destinations, locationField, (distanceTable, isDone) => {
                                         if (isDone) {
                                             setDistanceTable(distanceTable);
