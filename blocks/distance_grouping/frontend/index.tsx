@@ -87,7 +87,7 @@ function Main() {
     const groupFieldId = String(globalConfig.get('groupFieldId'));
     const groupField = table && groupFieldId ? table.getFieldByIdIfExists(groupFieldId) : null;
 
-    const groupSize = Number(globalConfig.get('groupSize'));
+    const numberOfGroups = Number(globalConfig.get('numberOfGroups'));
     const shouldEqualizeGroups = Boolean(globalConfig.get('shouldEqualizeGroups'));
     const [pageIndex, setPageIndex] = useState(0);
 
@@ -142,10 +142,10 @@ function Main() {
     }
 
     useEffect(() => {
-        if (records && groupSize) {
-            console.log('testing effect with effect cache [records, groupSize]', [records, groupSize]);
+        if (records && numberOfGroups) {
+            console.log('testing effect with effect cache [records, numberOfGroups]', [records, numberOfGroups]);
         }
-    }, [records, groupSize]);
+    }, [records, numberOfGroups]);
 
     useEffect(() => {
         function handleMessage(event) {
@@ -168,9 +168,9 @@ function Main() {
 
     const optimalPartition = useMemo(() => {
         console.log('running optimal partition memo function');
-        if (distanceTable && groupSize) {
+        if (distanceTable && numberOfGroups) {
             console.log('finding optimal partition');
-            const allPartitions = createPartitions(records, groupSize);
+            const allPartitions = createPartitions(records, numberOfGroups);
             const validPartitions = shouldEqualizeGroups ?
                 allPartitions.filter(isValidPartition) :
                 allPartitions;
@@ -180,7 +180,7 @@ function Main() {
 
             return allPartitions[indexMinimum];
         }
-    }, [distanceTable, shouldEqualizeGroups, groupSize]);
+    }, [distanceTable, shouldEqualizeGroups, numberOfGroups]);
 
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);
@@ -194,10 +194,10 @@ function Main() {
                 <div>
                     <Box display="flex" flexDirection="row" alignItems="center" justifyContent="space-around">
                         <div>
-                        <Label htmlFor="league-size-input">Group size</Label>
+                        <Label htmlFor="number-of-groups-input">Number of groups</Label>
                         <InputSynced
-                            id="league-size-input"
-                            globalConfigKey="groupSize"
+                            id="number-of-groups-input"
+                            globalConfigKey="numberOfGroups"
                             type="number"
                             step={1}
                             min={1}
