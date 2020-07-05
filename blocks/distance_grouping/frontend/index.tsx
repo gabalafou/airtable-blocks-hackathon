@@ -58,6 +58,8 @@ function DistanceGroupingApp() {
     return <Main />;
 }
 
+const isDev = window.location.hostname.indexOf('devblock') > -1;
+
 function Main() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
@@ -178,15 +180,17 @@ function Main() {
         case 0: {
             return (
                 <div>
-                    <div>
-                        <input
-                            id="mock-distance-matrix-checkbox"
-                            type="checkbox"
-                            checked={shouldUseMockDistanceTable}
-                            onChange={event => setShouldUseMockDistanceTable(event.currentTarget.checked)}
-                        />
-                        <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
-                    </div>
+                    {isDev &&
+                        <div>
+                            <input
+                                id="mock-distance-matrix-checkbox"
+                                type="checkbox"
+                                checked={shouldUseMockDistanceTable}
+                                onChange={event => setShouldUseMockDistanceTable(event.currentTarget.checked)}
+                            />
+                            <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
+                        </div>
+                    }
                     <div>
                         <Label htmlFor="league-size-input">League size (no. teams)</Label>
                         <Input
