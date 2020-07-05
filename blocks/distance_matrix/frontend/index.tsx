@@ -230,8 +230,6 @@ function Main() {
     const locationFieldId = globalConfig.get('locationFieldId');
     const apiKey = globalConfig.get('googleMapsApiKey');
 
-    const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
-
     const table = base.getTableByIdIfExists(tableId as string);
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
     const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
@@ -240,26 +238,15 @@ function Main() {
     const [statusTable, setStatusTable] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
 
-    const records = useRecords(view);
+    const allRecords = useRecords(view);
+    const records = allRecords && allRecords.filter(rec => rec.getCellValue(locationField));
 
     const origins = new Set();
     const destinations = new Set();
 
     if (records && locationField) {
         records.forEach(origin => {
-            if (!origin.getCellValue(locationField)) {
-                return;
-            }
-
             records.forEach(destination => {
-                if (!destination.getCellValue(locationField)) {
-                    return;
-                }
-
-                console.log(!distanceTable ||
-                    !distanceTable[origin.id] ||
-                    !distanceTable[origin.id].hasOwnProperty(destination.id))
-
                 if (!distanceTable ||
                     !distanceTable[origin.id] ||
                     !distanceTable[origin.id].hasOwnProperty(destination.id)
@@ -350,40 +337,28 @@ function Main() {
                                 <DistanceTable records={records} distanceTable={distanceTable || statusTable} />
                             }
                             {records && isDev &&
-                                <>
-
-                                    <Button onClick={() => {
+                                <DevTools
+                                    onClearAll={() => {
                                         setStatusTable(null);
                                         setDistanceTable(null);
-                                    }}>
-                                        Clear all
-                                    </Button>
-
-                                    <Button onClick={() => {
-                                        const keys = Object.keys(distanceTable);
-                                        keys.forEach(originId => {
-                                            keys.forEach(destinationId => {
-                                                const value = distanceTable[originId][destinationId];
-                                                const shouldUnsetValue = Math.random() < 0.1;
-                                                if (shouldUnsetValue) {
-                                                    delete distanceTable[originId][destinationId];
-                                                }
+                                    }}
+                                    onClearSome={() => {
+                                        if (distanceTable) {
+                                            const keys = Object.keys(distanceTable);
+                                            keys.forEach(originId => {
+                                                keys.forEach(destinationId => {
+                                                    const value = distanceTable[originId][destinationId];
+                                                    const shouldUnsetValue = Math.random() < 0.1;
+                                                    if (shouldUnsetValue) {
+                                                        delete distanceTable[originId][destinationId];
+                                                    }
+                                                });
                                             });
-                                        });
-
-                                        setStatusTable(null);
-                                        setDistanceTable({...distanceTable});
-                                    }}>
-                                        Clear some
-                                    </Button>
-                                    <input
-                                        id="mock-service-checkbox"
-                                        type="checkbox"
-                                        checked={shouldUseMockService}
-                                        onChange={event => setShouldUseMockService(event.currentTarget.checked)}
-                                    />
-                                    <Label htmlFor="mock-service-checkbox">Use Mock Service</Label>
-                                </>
+                                            setStatusTable(null);
+                                            setDistanceTable({ ...distanceTable });
+                                        }
+                                    }}
+                                />
                             }
                         </>
                     }
@@ -391,6 +366,28 @@ function Main() {
             );
         }
     }
+}
+
+function DevTools(props) {
+    const { onClearAll, onClearSome } = props;
+    const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
+    return (
+        <>
+            <Button onClick={onClearAll}>
+                Clear all
+            </Button>
+            <Button onClick={onClearSome}>
+                Clear some
+            </Button>
+            <input
+                id="mock-service-checkbox"
+                type="checkbox"
+                checked={shouldUseMockService}
+                onChange={event => setShouldUseMockService(event.currentTarget.checked)}
+            />
+            <Label htmlFor="mock-service-checkbox">Use Mock Service</Label>
+        </>
+    );
 }
 
 function DistanceTable({records, distanceTable}) {
