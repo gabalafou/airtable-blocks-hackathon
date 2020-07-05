@@ -7,6 +7,7 @@ import {
     loadScriptFromURLAsync,
     Button,
     useSettingsButton,
+    Loader,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect } from 'react';
 
@@ -19,27 +20,32 @@ function parseGeocodeCacheValue(cacheValue) {
 }
 
 async function fetchDistanceMatrix(service, params, options) {
-    return new Promise(resolve => {
-        service.getDistanceMatrix(params, (response, status) => {
-            console.log('google maps response', response, status, options.retryCount);
-            const { OVER_QUERY_LIMIT } = google.maps.DistanceMatrixStatus;
-            if (options.retry && status === OVER_QUERY_LIMIT) {
-                setTimeout(() => {
-                    const retryCount = 1 + (options.retryCount || 0);
-                    resolve(fetchDistanceMatrix(service, params, {...options, retryCount}));
-                }, options.retry)
-            } else {
-                resolve([response, status]);
-            }
+    console.log('fetchDistanceMatrix( params =', params, ')');
+    let retryCount = 1;
+    return (function recurse() {
+        return new Promise(resolve => {
+            service.getDistanceMatrix(params, (response, status) => {
+                console.log('google maps response', response, status, retryCount);
+                const { OVER_QUERY_LIMIT } = google.maps.DistanceMatrixStatus;
+                if (options.retry && status === OVER_QUERY_LIMIT) {
+                    setTimeout(() => {
+                        retryCount++;
+                        resolve(recurse());
+                    }, options.retry)
+                } else {
+                    resolve([response, status]);
+                }
+            });
         });
-    });
+    })();
+
 }
 
 function MockDistanceMatrixService() {
     return {
         getDistanceMatrix(params, callback) {
             const { origins, destinations } = params;
-            const randomDelay = Math.random() * 1000;
+            const randomDelay = Math.random() * 1500;
             setTimeout(() => {
                 const status = Math.random() < 0.7 ? 'OK' : 'OVER_QUERY_LIMIT';
                 const response = {
@@ -81,8 +87,9 @@ function parseLocation(location) {
     }
 }
 
-const MAX_DIMENSIONS = 25;
-const MAX_ELEMENTS = 100;
+const MAX_DIMENSIONS = 10;
+const MAX_ELEMENTS = 25;
+const LOADING = 'loading';
 
 async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationField, progress) {
     if (!googleMapsLoaded) {
@@ -104,6 +111,49 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
 
     const getLocation = record => record.getCellValue(locationField);
 
+    const flush = (origins, destinations) => {
+        origins = new Set(origins);
+        destinations = new Set(destinations);
+        origins.forEach(origin => destinations.forEach(destination => {
+            distanceTable[origin.id][destination.id] = LOADING;
+        }));
+        const originIds = Array.from(origins).map(({ id }) => id);
+        const destinationIds = Array.from(destinations).map(({ id }) => id);
+
+        const originNames = Array.from(origins).map(({ name }) => name);
+        const destinationNames = Array.from(destinations).map(({ name }) => name);
+        console.log('progress Fetching...', 'origins', originNames, 'destinations', destinationNames);
+
+        progress(distanceTable);
+
+        requestPromises.push(
+            new Promise(resolve => {
+                const promise = fetchDistanceMatrix(service, {
+                    origins: Array.from(origins).map(getLocation).map(parseLocation),
+                    destinations: Array.from(destinations).map(getLocation).map(parseLocation),
+                    travelMode: 'DRIVING',
+                }, {
+                    retry: 2000,
+                }).then(([response, status]) => {
+                    if (status == 'OK') {
+                        const { rows } = response;
+                        rows.forEach((row, i) => {
+                            const { elements } = row;
+                            elements.forEach((element, j) => {
+                                distanceTable[originIds[i]][destinationIds[j]] = element.distance.value;
+                            });
+                        });
+                        console.log('progress Fetched', 'origins', originNames, 'destination', destinationNames);
+                        console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
+                        progress(distanceTable);
+                    }
+                    return [response, status];
+                });
+                resolve(promise);
+            })
+        );
+    }
+
     allOrigins.forEach(origin => {
         origins.add(origin); // push origin latLng
         allDestinations.forEach(destination => {
@@ -120,87 +170,12 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
                 const requestSizeWithAnotherRow = requestSize + allDestinations.size;
                 shouldFlush = requestSizeWithAnotherRow > MAX_ELEMENTS;
             } else {
-                shouldFlush = requestSize === MAX_ELEMENTS ||
-                    destinations.size === MAX_DIMENSIONS ||
-                    origins.size === MAX_DIMENSIONS;
+                shouldFlush = (requestSize + 1) > MAX_ELEMENTS ||
+                    (destinations.size + 1) > MAX_DIMENSIONS ||
+                    (origins.size + 1) > MAX_DIMENSIONS;
             }
-
             if (shouldFlush) {
-                origins.forEach(origin => destinations.forEach(destination => {
-                    distanceTable[origin.id][destination.id] = 'FETCHING';
-                    progress(distanceTable);
-                }))
-                const originIds = Array.from(origins).map(({ id }) => id);
-                const destinationIds = Array.from(destinations).map(({ id }) => id);
-                requestPromises.push(
-                    fetchDistanceMatrix(service, {
-                        origins: Array.from(origins).map(getLocation).map(parseLocation),
-                        destinations: Array.from(destinations).map(getLocation).map(parseLocation),
-                        travelMode: 'DRIVING',
-                    }, {
-                        retry: 2000,
-                    }).then(([response, status]) => {
-                        if (status == 'OK') {
-                            const { rows } = response;
-                            rows.forEach((row, i) => {
-                                const { elements } = row;
-                                elements.forEach((element, j) => {
-                                    distanceTable[originIds[i]][destinationIds[j]] = element.distance.value;
-                                });
-                            });
-
-                            progress(distanceTable);
-
-                            // latLngs.forEach((loc1, iOuter) => {
-                            //     const { elements } = rows[iOuter];
-                            //     latLngs.forEach((loc2, iInner) => {
-                            //         if (iOuter === iInner) {
-                            //             return;
-                            //         }
-                            //         const distance = elements[iInner].distance.value;
-
-                            //         distanceTable[records[iOuter].id][records[iInner].id] = distance;
-                            //     });
-                            // });
-                        }
-                        return [response, status];
-                    })
-                );
-
-                // requestPromises.push(new Promise(resolve => {
-                //     service.getDistanceMatrix({
-                //         origins: origins_.map(getLocation).map(parseLocation),
-                //         destinations: destinations_.map(getLocation).map(parseLocation),
-                //         travelMode: 'DRIVING',
-                //     }, ((originIds, destinationIds) => (response, status) => {
-                //         console.log('google maps response', response, status);
-                //         if (status == 'OK') {
-                //             const { rows } = response;
-                //             rows.forEach((row, i) => {
-                //                 const { elements } = row;
-                //                 elements.forEach((element, j) => {
-                //                     distanceTable[originIds[i]][destinationIds[j]] = element.distance.value;
-                //                 });
-                //             });
-
-                //             progress(distanceTable);
-
-                //             // latLngs.forEach((loc1, iOuter) => {
-                //             //     const { elements } = rows[iOuter];
-                //             //     latLngs.forEach((loc2, iInner) => {
-                //             //         if (iOuter === iInner) {
-                //             //             return;
-                //             //         }
-                //             //         const distance = elements[iInner].distance.value;
-
-                //             //         distanceTable[records[iOuter].id][records[iInner].id] = distance;
-                //             //     });
-                //             // });
-                //         }
-                //         resolve([response, status]);
-                //     })(Array.from(origins).map(({id}) => id), Array.from(destinations).map(({id}) => id)));
-                // }));
-
+                flush(origins, destinations);
                 if (isAtEndOfRow) {
                     origins.clear();
                 }
@@ -208,6 +183,11 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
             }
         });
     });
+
+    // Final flush
+    if (origins.size && destinations.size) {
+        flush(origins, destinations);
+    }
 
     console.log('requestPromises', requestPromises);
     return Promise.all(requestPromises).then(responses => {
@@ -217,6 +197,7 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
 }
 
 const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
+const isDev = window.location.hostname.startsWith('devblock');
 
 function DistanceMatrixApp() {
     const [isShowingSettings, setIsShowingSettings] = useState(false);
@@ -248,13 +229,7 @@ function Main() {
     const [statusTable, setStatusTable] = useState(null);
     const [pageIndex, setPageIndex] = useState(0);
 
-
-    console.log('distance table', distanceTable);
-
-
     const records = useRecords(view);
-
-    console.log('records', records);
 
     const origins = new Set();
     const destinations = new Set();
@@ -269,6 +244,10 @@ function Main() {
                 if (!destination.getCellValue(locationField)) {
                     return;
                 }
+
+                console.log(!distanceTable ||
+                    !distanceTable[origin.id] ||
+                    !distanceTable[origin.id].hasOwnProperty(destination.id))
 
                 if (!distanceTable ||
                     !distanceTable[origin.id] ||
@@ -297,13 +276,15 @@ function Main() {
                 event.source.postMessage(response, event.origin);
             }
         }
-        console.log("distance_matrix window.addEventListener('message', handleMessage);");
+        // console.log("distance_matrix window.addEventListener('message', handleMessage);");
         window.addEventListener('message', handleMessage);
         return function stopListening() {
-            console.log("distance_matrix window.removeEventListener('message', handleMessage);");
+            // console.log("distance_matrix window.removeEventListener('message', handleMessage);");
             window.removeEventListener('message', handleMessage);
         }
     }, [tableId, viewId, distanceTable]);
+
+    console.log('render, distance table', distanceTable);
 
     switch (pageIndex) {
         default:
@@ -312,24 +293,78 @@ function Main() {
                 <div>
                     {locationField &&
                         <>
-                            <Button
-                                onClick={() => {
-                                    console.log({ origins, destinations });
-                                    getDistanceMatrix(apiKey, origins, destinations, locationField, (distanceTable, isDone) => {
-                                        if (isDone) {
-                                            setDistanceTable(distanceTable);
-                                        } else {
-                                            setStatusTable(distanceTable);
-                                        }
-                                    });
-                                }}
-                                disabled={!apiKey}
-                            >
-                                Fetch distances from Google Maps
-                            </Button>
+                            {origins.size > 0 && destinations.size > 0 &&
+                                <Button
+                                    onClick={() => {
+                                        const originNames = Array.from(origins).map(({name})=>name);
+                                        const destinationNames = Array.from(destinations).map(({name})=>name);
+                                        console.log('onClickFetch', { originNames, destinationNames });
+                                        getDistanceMatrix(apiKey, origins, destinations, locationField, (result, isDone) => {
+
+                                            const updatedTable = {...(distanceTable || statusTable || {})};
+                                            console.log('updatingDistanceTable')
+
+                                            // update distance table
+                                            const recordIds = records.map(({ id }) => id);
+                                            recordIds.forEach(originId => {
+                                                if (!updatedTable[originId]) {
+                                                    updatedTable[originId] = {};
+                                                }
+                                                recordIds.forEach(destinationId => {
+                                                    const originalValue = updatedTable[originId][destinationId];
+                                                    const updatedValue = result[originId] && result[originId][destinationId];
+                                                    updatedTable[originId][destinationId] = updatedValue != null ?
+                                                        updatedValue :
+                                                        originalValue;
+
+                                                });
+                                            });
+
+                                            if (isDone) {
+                                                console.log('PROGRESS', 'isDone');
+                                                setDistanceTable(updatedTable);
+                                            } else {
+                                                console.log('PROGRESS', 'setStatusTable');
+                                                setStatusTable(updatedTable);
+                                            }
+                                        });
+                                    }}
+                                    disabled={!apiKey}
+                                >
+                                    Fetch distances from Google Maps
+                                </Button>
+                            }
                             {records &&
                                 <DistanceTable records={records} distanceTable={distanceTable || statusTable} />
+                            }
+                            {records && isDev &&
+                                <>
 
+                                    <Button onClick={() => {
+                                        setStatusTable(null);
+                                        setDistanceTable(null);
+                                    }}>
+                                        Clear all
+                                    </Button>
+
+                                    <Button onClick={() => {
+                                        const keys = Object.keys(distanceTable);
+                                        keys.forEach(originId => {
+                                            keys.forEach(destinationId => {
+                                                const value = distanceTable[originId][destinationId];
+                                                const shouldUnsetValue = Math.random() < 0.1;
+                                                if (shouldUnsetValue) {
+                                                    delete distanceTable[originId][destinationId];
+                                                }
+                                            });
+                                        });
+
+                                        setStatusTable(null);
+                                        setDistanceTable({...distanceTable});
+                                    }}>
+                                        Clear some
+                                    </Button>
+                                </>
                             }
                         </>
                     }
@@ -366,7 +401,7 @@ function DistanceTable({records, distanceTable}) {
                             };
                             return (
                                 <td key={destination.id} style={style}>
-                                    {value}
+                                    {value === LOADING ? <Loader scale={0.3} /> : value}
                                 </td>
                             )
                         })}
