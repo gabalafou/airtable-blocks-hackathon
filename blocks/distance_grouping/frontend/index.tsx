@@ -173,7 +173,7 @@ function Main() {
 
             return allPartitions[indexMinimum];
         }
-    }, [distanceTable, groupSize]);
+    }, [distanceTable, shouldEqualizeGroups, groupSize]);
 
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);
