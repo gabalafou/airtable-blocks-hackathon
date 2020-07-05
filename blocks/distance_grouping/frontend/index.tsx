@@ -187,7 +187,8 @@ function Main() {
         case 0: {
             return (
                 <div>
-                    <Box>
+                    <Box display="flex" flexDirection="row" alignItems="center" justifyContent="space-around">
+                        <div>
                         <Label htmlFor="league-size-input">Group size</Label>
                         <InputSynced
                             id="league-size-input"
@@ -196,12 +197,14 @@ function Main() {
                             step={1}
                             min={2}
                             max={records && (records.length - 1)}
+                            width={80}
+                            marginLeft={1}
                         />
-                    </Box>
-                    <Box>
+                        </div>
                         <SwitchSynced
                             globalConfigKey="shouldEqualizeGroups"
                             label="Equalize groups"
+                            width={160}
                         />
                     </Box>
                     {optimalPartition &&
@@ -258,6 +261,7 @@ function ListSublist(props) {
                 <ul style={{listStyle: 'none', paddingLeft: 0}}>{sublist.map(record =>
                     <li key={record.id}>
                         <TextButton
+                            aria-label="Expand record"
                             variant="dark"
                             icon="expand"
                             onClick={() => void expandRecord(record)}
