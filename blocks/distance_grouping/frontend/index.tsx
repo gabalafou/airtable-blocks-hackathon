@@ -10,6 +10,10 @@ import {
     colors,
     useSettingsButton,
     FieldPickerSynced,
+    Switch,
+    SwitchSynced,
+    InputSynced,
+    Box,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -73,10 +77,11 @@ function Main() {
 
     const table = base.getTableByIdIfExists(tableId);
     const view = table ? table.getViewByIdIfExists(viewId) : null;
-    const [groupField, setGroupField] = useState(null);
+    const groupFieldId = String(globalConfig.get('groupFieldId'));
+    const groupField = table && groupFieldId ? table.getFieldByIdIfExists(groupFieldId) : null;
 
-    const [groupSize, setGroupSize] = useState(1);
-    const [shouldEqualizeGroups, setShouldEqualizeGroups] = useState(true);
+    const groupSize = globalConfig.get('groupSize');
+    const shouldEqualizeGroups = Boolean(globalConfig.get('shouldEqualizeGroups'));
     const [pageIndex, setPageIndex] = useState(0);
 
     const records = useRecords(view);
@@ -182,40 +187,31 @@ function Main() {
                 <div>
                     {isDev &&
                         <div>
-                            <input
+                            <Switch
                                 id="mock-distance-matrix-checkbox"
-                                type="checkbox"
-                                checked={shouldUseMockDistanceTable}
-                                onChange={event => setShouldUseMockDistanceTable(event.currentTarget.checked)}
+                                label="Use mock distance matrix"
+                                value={shouldUseMockDistanceTable}
+                                onChange={value => setShouldUseMockDistanceTable(value)}
                             />
-                            <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
                         </div>
                     }
-                    <div>
-                        <Label htmlFor="league-size-input">League size (no. teams)</Label>
-                        <Input
+                    <Box>
+                        <Label htmlFor="league-size-input">Group size</Label>
+                        <InputSynced
                             id="league-size-input"
+                            globalConfigKey="groupSize"
                             type="number"
                             step={1}
                             min={2}
                             max={records && (records.length - 1)}
-                            value={String(groupSize)}
-                            onChange={({ currentTarget: { value } }) => {
-                                if (value) {
-                                    setGroupSize(Number(value));
-                                }
-                            }}
                         />
-                    </div>
-                    <div>
-                        <input
-                            id="equalize-group-checkbox"
-                            type="checkbox"
-                            checked={shouldEqualizeGroups}
-                            onChange={event => setShouldEqualizeGroups(event.currentTarget.checked)}
+                    </Box>
+                    <Box>
+                        <SwitchSynced
+                            globalConfigKey="shouldEqualizeGroups"
+                            label="Equalize groups"
                         />
-                        <Label htmlFor="equalize-group-checkbox">Equalize groups</Label>
-                    </div>
+                    </Box>
                     {optimalPartition &&
                         <>
                             <ListSublist list={optimalPartition} />
@@ -224,9 +220,6 @@ function Main() {
                                 table={table}
                                 globalConfigKey="groupFieldId"
                                 allowedTypes={[FieldType.SINGLE_SELECT]}
-                                onChange={field => {
-                                    setGroupField(field);
-                                }}
                             />
                             {groupField &&
                                 <Button onClick={savePartition}>Save</Button>
