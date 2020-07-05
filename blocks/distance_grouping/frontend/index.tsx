@@ -7,9 +7,9 @@ import {
     Input,
     Label,
     Button,
-    FieldPicker,
     colors,
     useSettingsButton,
+    FieldPickerSynced,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -18,7 +18,7 @@ import Settings from './settings';
 
 const BATCH_SIZE = 50;
 async function batchUpdateRecords(table, updates) {
-    if (table.hasPermissionToUpdateRecords(updates)) {
+    if (!table.hasPermissionToUpdateRecords(updates)) {
         console.error('No permission to update');
         return;
     }
@@ -66,7 +66,7 @@ function Main() {
 
     const blockResultCode = globalConfig.get('blockResultCode');
 
-    const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(true);
+    const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(isDev);
     const [tableId, setTableId] = useState(shouldUseMockDistanceTable ? 'tblm9dueBPkf4dvCO' : '');
     const [viewId, setViewId] = useState(shouldUseMockDistanceTable ? 'viw5cGnD9Xggf6hkV' : '');
     let [distanceTable, setDistanceTable] = useState(null);
@@ -198,7 +198,7 @@ function Main() {
                             type="number"
                             step={1}
                             min={2}
-                            max={records.length - 1}
+                            max={records && (records.length - 1)}
                             value={String(groupSize)}
                             onChange={({ currentTarget: { value } }) => {
                                 if (value) {
@@ -220,9 +220,9 @@ function Main() {
                         <>
                             <ListSublist list={optimalPartition} />
                             <div>Save results</div>
-                            <FieldPicker
+                            <FieldPickerSynced
                                 table={table}
-                                field={groupField}
+                                globalConfigKey="groupFieldId"
                                 allowedTypes={[FieldType.SINGLE_SELECT]}
                                 onChange={field => {
                                     setGroupField(field);
