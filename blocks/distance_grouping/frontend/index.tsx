@@ -14,6 +14,8 @@ import {
     SwitchSynced,
     InputSynced,
     Box,
+    expandRecord,
+    TextButton,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -247,18 +249,22 @@ function createMockDistanceTable(origins, destinations) {
     return distanceTable;
 }
 
-
-
-
-
 function ListSublist(props) {
     const { list } = props;
     return (
         <ul>{list.map((sublist, i) =>
             <li key={i}>
                 Group {i + 1}:
-                <ul>{sublist.map(record =>
-                <li key={record.id}>{record.name}</li>)}
+                <ul style={{listStyle: 'none', paddingLeft: 0}}>{sublist.map(record =>
+                    <li key={record.id}>
+                        <TextButton
+                            variant="dark"
+                            icon="expand"
+                            onClick={() => void expandRecord(record)}
+                            marginRight={1}
+                        />
+                        {record.name}
+                    </li>)}
                 </ul>
             </li>)}
         </ul>
