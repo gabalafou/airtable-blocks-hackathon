@@ -20,6 +20,11 @@ import {
 import React, { useState, useEffect, useMemo } from 'react';
 
 import Settings from './settings';
+import {
+    createPartitions,
+    scorePartition,
+    isValidPartition,
+} from './partition';
 
 
 const BATCH_SIZE = 50;
@@ -283,107 +288,5 @@ function requestDistanceMatrix(blockResultCode) {
         }
         console.log('posting message with blockResultCode', blockResultCode);
         frame.postMessage(blockResultCode, '*');
-    }
-}
-
-function parseLocation(loc) {
-    loc = loc.replace('(', '');
-    loc = loc.replace(')', '');
-    loc = loc.replace(/\s/, '');
-    return loc.split(',').map(Number);
-}
-
-function calculateDistance(p1, p2) {
-    const [p1x, p1y] = parseLocation(p1);
-    const [p2x, p2y] = parseLocation(p2);
-    const a = p2y - p1y;
-    const b = p2x - p1x;
-
-    // Pythagoras: c^2 = sqrt(a^2 + b^2)
-    return Math.sqrt((a ** 2) + (b ** 2));
-}
-
-function scorePartition(distanceTable, partition) {
-    return partition.reduce((score, group) => {
-        let distanceSum = 0;
-        // group.reduce((distanceSum, record, index) => {
-
-        // }, )
-        group.forEach((record1) => {
-            group.forEach((record2) => {
-                distanceSum += distanceTable[record1.id][record2.id];
-            });
-        });
-        return score + distanceSum;
-    }, 0)
-}
-
-// reject partitions where the group sizes differ by more than 1
-function isValidPartition(partition) {
-    const max = Math.max(...partition.map(group => group.length));
-    const min = Math.min(...partition.map(group => group.length));
-    return Math.abs(max - min) <= 1;
-}
-
-function createPartitions(items, size) {
-    if (size >= items.length) {
-        throw new Error('Group size must be smaller than total');
-    }
-
-    const div = Math.floor(items.length / size);
-    const rem = items.length % size;
-
-    const divisions = new Array(div).fill(size);
-    if (rem === 0) {
-        divisions.pop();
-    }
-    return group(items, divisions);
-}
-
-function pick(list, items) {
-    var length = list.length, selected = [], rest = [];
-
-    for (var i = 0; i < length; i++) {
-        if (items.indexOf(i) < 0) rest.push(list[i]);
-        else selected.push(list[i]);
-    }
-
-    return [selected, rest];
-}
-
-
-function getIndices(length) {
-    var indices = [];
-
-    for (var i = 0; i < length; i++)
-        indices.push(i);
-    return indices;
-}
-
-
-function group(options, divisions) {
-    var subgroup = [], groups = [], n = 0;
-    var indices = getIndices(options.length);
-    var division = divisions.shift(), remaining = divisions.length;
-    indices.forEach(select);
-    return groups;
-
-    function select(index) {
-        subgroup.push(index);
-
-        if (++n < division) indices.slice(index + 1).forEach(select);
-        else {
-            var subgroups = pick(options, subgroup);
-
-            if (remaining) {
-                var children = group(subgroups.pop(), divisions.slice());
-                var length = children.length;
-                for (var i = 0; i < length; i++)
-                    groups.push(subgroups.concat(children[i]));
-            } else groups.push(subgroups);
-        }
-
-        subgroup.pop();
-        n--;
     }
 }
