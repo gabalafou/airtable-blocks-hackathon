@@ -8,6 +8,7 @@ import {
     Button,
     useSettingsButton,
     Loader,
+    Label,
 } from '@airtable/blocks/ui';
 import React, { useState, useEffect } from 'react';
 
@@ -41,7 +42,7 @@ async function fetchDistanceMatrix(service, params, options) {
 
 }
 
-function MockDistanceMatrixService() {
+function mockDistanceMatrixService() {
     return {
         getDistanceMatrix(params, callback) {
             const { origins, destinations } = params;
@@ -91,12 +92,22 @@ const MAX_DIMENSIONS = 10;
 const MAX_ELEMENTS = 25;
 const LOADING = 'loading';
 
-async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationField, progress) {
+async function getDistanceMatrixService(apiKey, shouldUseMockService) {
     if (!googleMapsLoaded) {
         googleMapsLoaded = loadScriptFromURLAsync(`https://maps.googleapis.com/maps/api/js?key=${apiKey}`);
     }
 
     await googleMapsLoaded;
+
+    if (shouldUseMockService) {
+        return mockDistanceMatrixService();
+    }
+
+    return new google.maps.DistanceMatrixService();
+}
+
+async function getDistanceMatrix(getService, allOrigins, allDestinations, locationField, progress) {
+    const service = await getService();
 
     const distanceTable = {};
     allOrigins.forEach(rec => distanceTable[rec.id] = {});
@@ -106,8 +117,6 @@ async function getDistanceMatrix(apiKey, allOrigins, allDestinations, locationFi
     const origins = new Set();
     const destinations = new Set();
     const requestPromises = [];
-
-    const service = MockDistanceMatrixService(); // new google.maps.DistanceMatrixService();
 
     const getLocation = record => record.getCellValue(locationField);
 
@@ -221,6 +230,8 @@ function Main() {
     const locationFieldId = globalConfig.get('locationFieldId');
     const apiKey = globalConfig.get('googleMapsApiKey');
 
+    const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
+
     const table = base.getTableByIdIfExists(tableId as string);
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
     const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
@@ -299,9 +310,10 @@ function Main() {
                                         const originNames = Array.from(origins).map(({name})=>name);
                                         const destinationNames = Array.from(destinations).map(({name})=>name);
                                         console.log('onClickFetch', { originNames, destinationNames });
-                                        getDistanceMatrix(apiKey, origins, destinations, locationField, (result, isDone) => {
+                                        const getService = () => getDistanceMatrixService(apiKey, shouldUseMockService);
+                                        getDistanceMatrix(getService, origins, destinations, locationField, (result, isDone) => {
 
-                                            const updatedTable = {...(distanceTable || statusTable || {})};
+                                            const updatedTable = { ...(distanceTable || statusTable || {}) };
                                             console.log('updatingDistanceTable')
 
                                             // update distance table
@@ -364,6 +376,13 @@ function Main() {
                                     }}>
                                         Clear some
                                     </Button>
+                                    <input
+                                        id="mock-service-checkbox"
+                                        type="checkbox"
+                                        checked={shouldUseMockService}
+                                        onChange={event => setShouldUseMockService(event.currentTarget.checked)}
+                                    />
+                                    <Label htmlFor="mock-service-checkbox">Use Mock Service</Label>
                                 </>
                             }
                         </>
