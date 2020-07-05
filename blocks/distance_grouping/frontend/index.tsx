@@ -87,7 +87,7 @@ function Main() {
     const groupFieldId = String(globalConfig.get('groupFieldId'));
     const groupField = table && groupFieldId ? table.getFieldByIdIfExists(groupFieldId) : null;
 
-    const groupSize = globalConfig.get('groupSize');
+    const groupSize = Number(globalConfig.get('groupSize'));
     const shouldEqualizeGroups = Boolean(globalConfig.get('shouldEqualizeGroups'));
     const [pageIndex, setPageIndex] = useState(0);
 
@@ -200,8 +200,8 @@ function Main() {
                             globalConfigKey="groupSize"
                             type="number"
                             step={1}
-                            min={2}
-                            max={records && (records.length - 1)}
+                            min={1}
+                            max={records ? records.length : ''}
                             width={80}
                             marginLeft={1}
                         />

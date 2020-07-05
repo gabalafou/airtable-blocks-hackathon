@@ -1,27 +1,25 @@
-export function createPartitions(items, size) {
-  if (size >= items.length) {
-    throw new Error('Group size must be smaller than total');
-  }
+export function createPartitions(items, numberOfGroups) {
+    const numberOfItems = items.length;
+    if (numberOfGroups > numberOfItems) {
+        throw new Error('Choose smaller number of groups.');
+    }
 
-  const div = Math.floor(items.length / size);
-  const rem = items.length % size;
+    if (numberOfGroups === 1) {
+        return [ [items] ];
+    }
 
-  console.log(div, rem);
+    const groupSizes = [];
+    for (let i = 0; i < numberOfItems; i++) {
+        const groupSizeIndex = i % numberOfGroups;
+        groupSizes[groupSizeIndex] = 1 + (groupSizes[groupSizeIndex] || 0);
+    }
 
-  const divisions = new Array(div).fill(size);
-  if (rem === 0) {
-    divisions.pop();
-  }
-  console.log('about to partition', items, divisions);
-  return group(items, divisions);
+    return group(items, groupSizes.slice(0, -1));
 }
 
 export function scorePartition(distanceTable, partition) {
     return partition.reduce((score, group) => {
         let distanceSum = 0;
-        // group.reduce((distanceSum, record, index) => {
-
-        // }, )
         group.forEach((record1) => {
             group.forEach((record2) => {
                 distanceSum += distanceTable[record1.id][record2.id];
@@ -35,7 +33,7 @@ export function scorePartition(distanceTable, partition) {
 export function isValidPartition(partition) {
     const max = Math.max(...partition.map(group => group.length));
     const min = Math.min(...partition.map(group => group.length));
-    return Math.abs(max - min) <= 1;
+    return max - min <= 1;
 }
 
 function pick(list, items) {
