@@ -171,10 +171,13 @@ function Main() {
         if (distanceTable && numberOfGroups) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, numberOfGroups);
+            console.log('allPartitions', allPartitions);
             const validPartitions = shouldEqualizeGroups ?
                 allPartitions.filter(isValidPartition) :
                 allPartitions;
+            console.log('validPartitions', validPartitions);
             const partitionScores = validPartitions.map(partition => scorePartition(distanceTable, partition));
+            console.log('partitionScores', partitionScores);
             const minimumScore = Math.min(...partitionScores);
             const indexMinimum = partitionScores.indexOf(minimumScore);
 

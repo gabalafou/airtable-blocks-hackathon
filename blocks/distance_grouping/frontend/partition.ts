@@ -22,7 +22,8 @@ export function scorePartition(distanceTable, partition) {
         let distanceSum = 0;
         group.forEach((record1) => {
             group.forEach((record2) => {
-                distanceSum += distanceTable[record1.id][record2.id];
+                const element = distanceTable[record1.id][record2.id];
+                distanceSum += element.distance.value;
             });
         });
         return score + distanceSum;
