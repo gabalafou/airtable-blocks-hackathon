@@ -185,16 +185,6 @@ function Main() {
         case 0: {
             return (
                 <div>
-                    {isDev &&
-                        <div>
-                            <Switch
-                                id="mock-distance-matrix-checkbox"
-                                label="Use mock distance matrix"
-                                value={shouldUseMockDistanceTable}
-                                onChange={value => setShouldUseMockDistanceTable(value)}
-                            />
-                        </div>
-                    }
                     <Box>
                         <Label htmlFor="league-size-input">Group size</Label>
                         <InputSynced
@@ -225,6 +215,17 @@ function Main() {
                                 <Button onClick={savePartition}>Save</Button>
                             }
                         </>
+                    }
+                    {isDev &&
+                        <div>
+                            <input
+                                id="mock-distance-matrix-checkbox"
+                                type="checkbox"
+                                checked={shouldUseMockDistanceTable}
+                                onChange={event => setShouldUseMockDistanceTable(event.currentTarget.checked)}
+                            />
+                            <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
+                        </div>
                     }
                 </div>
             );
