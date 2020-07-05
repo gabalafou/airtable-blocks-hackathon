@@ -59,6 +59,7 @@ function mockDistanceMatrixService() {
                             return {
                                 distance: {
                                     value: distance,
+                                    text: `${distance} m`
                                 },
                                 status: 'OK'
                             };
@@ -116,11 +117,10 @@ async function getDistanceMatrix(getService, allOrigins, allDestinations, locati
 
     const origins = new Set();
     const destinations = new Set();
-    const requestPromises = [];
 
     const getLocation = record => record.getCellValue(locationField);
 
-    const flush = (origins, destinations) => {
+    const flush = async (origins, destinations) => {
         origins = new Set(origins);
         destinations = new Set(destinations);
         origins.forEach(origin => destinations.forEach(destination => {
@@ -131,41 +131,39 @@ async function getDistanceMatrix(getService, allOrigins, allDestinations, locati
 
         const originNames = Array.from(origins).map(({ name }) => name);
         const destinationNames = Array.from(destinations).map(({ name }) => name);
+
         console.log('progress Fetching...', 'origins', originNames, 'destinations', destinationNames);
 
         progress(distanceTable);
 
-        requestPromises.push(
-            new Promise(resolve => {
-                const promise = fetchDistanceMatrix(service, {
-                    origins: Array.from(origins).map(getLocation).map(parseLocation),
-                    destinations: Array.from(destinations).map(getLocation).map(parseLocation),
-                    travelMode: 'DRIVING',
-                }, {
-                    retry: 2000,
-                }).then(([response, status]) => {
-                    if (status == 'OK') {
-                        const { rows } = response;
-                        rows.forEach((row, i) => {
-                            const { elements } = row;
-                            elements.forEach((element, j) => {
-                                distanceTable[originIds[i]][destinationIds[j]] = element.distance.value;
-                            });
-                        });
-                        console.log('progress Fetched', 'origins', originNames, 'destination', destinationNames);
-                        console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
-                        progress(distanceTable);
-                    }
-                    return [response, status];
+        return fetchDistanceMatrix(service, {
+            origins: Array.from(origins).map(getLocation).map(parseLocation),
+            destinations: Array.from(destinations).map(getLocation).map(parseLocation),
+            travelMode: 'DRIVING',
+        }, {
+            retry: 2000,
+        }).then(([response, status]) => {
+            if (status == 'OK') {
+                const { rows } = response;
+                rows.forEach((row, i) => {
+                    const { elements } = row;
+                    elements.forEach((element, j) => {
+                        distanceTable[originIds[i]][destinationIds[j]] = element;
+                    });
                 });
-                resolve(promise);
-            })
-        );
+
+                console.log('progress Fetched', 'origins', originNames, 'destination', destinationNames);
+                console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
+
+                progress(distanceTable);
+            }
+            return [response, status];
+        });
     }
 
-    allOrigins.forEach(origin => {
-        origins.add(origin); // push origin latLng
-        allDestinations.forEach(destination => {
+    for (const origin of allOrigins) {
+        origins.add(origin);
+        for (const destination of allDestinations) {
             if (destinations.size < allDestinations.size) {
                 destinations.add(destination);
             }
@@ -184,25 +182,25 @@ async function getDistanceMatrix(getService, allOrigins, allDestinations, locati
                     (origins.size + 1) > MAX_DIMENSIONS;
             }
             if (shouldFlush) {
-                flush(origins, destinations);
+                await flush(origins, destinations);
                 if (isAtEndOfRow) {
                     origins.clear();
                 }
                 destinations.clear();
             }
-        });
-    });
+        }
+    }
 
     // Final flush
     if (origins.size && destinations.size) {
-        flush(origins, destinations);
+        await flush(origins, destinations);
     }
 
-    console.log('requestPromises', requestPromises);
-    return Promise.all(requestPromises).then(responses => {
-        console.log('all distance matrix api responses', responses);
-        progress(distanceTable, true);
-    });
+    console.log('progress Done.', JSON.stringify(distanceTable));
+
+    progress(distanceTable, true);
+
+    return distanceTable;
 }
 
 const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
@@ -229,6 +227,7 @@ function Main() {
     const viewId = globalConfig.get('selectedViewId');
     const locationFieldId = globalConfig.get('locationFieldId');
     const apiKey = globalConfig.get('googleMapsApiKey');
+    const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
 
     const table = base.getTableByIdIfExists(tableId as string);
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
@@ -358,6 +357,8 @@ function Main() {
                                             setDistanceTable({ ...distanceTable });
                                         }
                                     }}
+                                    onChangeShouldUseMockService={value => setShouldUseMockService(value)}
+                                    shouldUseMockService={shouldUseMockService}
                                 />
                             }
                         </>
@@ -369,8 +370,7 @@ function Main() {
 }
 
 function DevTools(props) {
-    const { onClearAll, onClearSome } = props;
-    const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
+    const { onClearAll, onClearSome, shouldUseMockService, onChangeShouldUseMockService } = props;
     return (
         <>
             <Button onClick={onClearAll}>
@@ -383,7 +383,7 @@ function DevTools(props) {
                 id="mock-service-checkbox"
                 type="checkbox"
                 checked={shouldUseMockService}
-                onChange={event => setShouldUseMockService(event.currentTarget.checked)}
+                onChange={event => onChangeShouldUseMockService(event.currentTarget.checked)}
             />
             <Label htmlFor="mock-service-checkbox">Use Mock Service</Label>
         </>
@@ -411,6 +411,9 @@ function DistanceTable({records, distanceTable}) {
                             let value = distanceTable &&
                                 distanceTable[origin.id] &&
                                 distanceTable[origin.id][destination.id];
+                            if (value && value.distance) {
+                                value = value.distance.text;
+                            }
                             const style = {
                                 backgroundColor: value == null ? '#ccc' : 'transparent',
                                 borderColor: 'white solid 1px',
