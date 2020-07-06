@@ -88,7 +88,6 @@ function Main() {
     const groupField = table && groupFieldId ? table.getFieldByIdIfExists(groupFieldId) : null;
 
     const numberOfGroups = Number(globalConfig.get('numberOfGroups'));
-    const shouldEqualizeGroups = Boolean(globalConfig.get('shouldEqualizeGroups'));
     const [pageIndex, setPageIndex] = useState(0);
 
     const records = useRecords(view);
@@ -171,19 +170,20 @@ function Main() {
         if (distanceTable && numberOfGroups) {
             console.log('finding optimal partition');
             const allPartitions = createPartitions(records, numberOfGroups);
-            console.log('allPartitions', allPartitions);
-            const validPartitions = shouldEqualizeGroups ?
-                allPartitions.filter(isValidPartition) :
-                allPartitions;
-            console.log('validPartitions', validPartitions);
-            const partitionScores = validPartitions.map(partition => scorePartition(distanceTable, partition));
+            console.log('allPartitions', allPartitions, 'records.length', records.length, 'numberOfGroups', numberOfGroups);
+
+            const partitionScores = allPartitions.map(partition => scorePartition(distanceTable, partition));
             console.log('partitionScores', partitionScores);
-            const minimumScore = Math.min(...partitionScores);
+
+            const minimumScore = partitionScores.reduce((left, right) => {
+                return Math.min(left, right);
+            }, Infinity);
             const indexMinimum = partitionScores.indexOf(minimumScore);
 
+            console.log('optimal partition', allPartitions[indexMinimum], 'score', minimumScore);
             return allPartitions[indexMinimum];
         }
-    }, [distanceTable, shouldEqualizeGroups, numberOfGroups]);
+    }, [distanceTable, numberOfGroups]);
 
     const nextPage = () => setPageIndex(pageIndex + 1);
     const prevPage = () => setPageIndex(pageIndex - 1);
@@ -195,8 +195,7 @@ function Main() {
         case 0: {
             return (
                 <div>
-                    <Box display="flex" flexDirection="row" alignItems="center" justifyContent="space-around">
-                        <div>
+                    <Box>
                         <Label htmlFor="number-of-groups-input">Number of groups</Label>
                         <InputSynced
                             id="number-of-groups-input"
@@ -207,12 +206,6 @@ function Main() {
                             max={records ? records.length : ''}
                             width={80}
                             marginLeft={1}
-                        />
-                        </div>
-                        <SwitchSynced
-                            globalConfigKey="shouldEqualizeGroups"
-                            label="Equalize groups"
-                            width={160}
                         />
                     </Box>
                     {optimalPartition &&
