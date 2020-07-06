@@ -34,7 +34,8 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
     const origins = new Set();
     const destinations = new Set();
 
-    const getLocation = record => record.getCellValue(locationField);
+    const locations = records => Array.from(records).map((record: typeof allOrigins) => record.getCellValue(locationField));
+    const ids = records => Array.from(records).map(({ id }) => id);
 
     const flush = async (origins, destinations) => {
         origins = new Set(origins);
@@ -42,19 +43,18 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
         origins.forEach(origin => destinations.forEach(destination => {
             distanceTable[origin.id][destination.id] = LOADING;
         }));
-        const originIds = Array.from(origins).map(({ id }) => id);
-        const destinationIds = Array.from(destinations).map(({ id }) => id);
 
-        const originNames = Array.from(origins).map(({ name }) => name);
-        const destinationNames = Array.from(destinations).map(({ name }) => name);
+        const originIds = ids(origins);
+        const destinationIds = ids(destinations);
 
-        console.log('progress Fetching...', 'origins', originNames, 'destinations', destinationNames);
+        const names = records => Array.from(records).map(({ name }) => name);
+        console.log('progress Fetching...', 'origins', names(origins), 'destinations', names(destinations));
 
         progress(distanceTable);
 
         return fetchDistanceMatrix(service, {
-            origins: Array.from(origins).map(getLocation).map(parseLocation),
-            destinations: Array.from(destinations).map(getLocation).map(parseLocation),
+            origins: locations(origins).map(parseLocation),
+            destinations: locations(destinations).map(parseLocation),
             travelMode: 'DRIVING',
         }, {
             retry: 2000,
@@ -68,7 +68,7 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
                     });
                 });
 
-                console.log('progress Fetched', 'origins', originNames, 'destination', destinationNames);
+                console.log('progress Fetched', 'origins', names(origins), 'destination', names(destinations));
                 console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
 
                 progress(distanceTable);
@@ -79,11 +79,10 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
 
     for (const origin of allOrigins) {
         origins.add(origin);
+        let destinationIndex = 0;
         for (const destination of allDestinations) {
-            if (destinations.size < allDestinations.size) {
-                destinations.add(destination);
-            }
-            const isAtEndOfRow = destinations.size === allDestinations.size;
+            destinations.add(destination);
+            const isAtEndOfRow = destinationIndex === allDestinations.size - 1;
             const requestSize = origins.size * destinations.size;
             let shouldFlush = false;
             if (isAtEndOfRow) {
@@ -101,6 +100,7 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
                 }
                 destinations.clear();
             }
+            destinationIndex++;
         }
     }
 
