@@ -88,7 +88,7 @@ function Main() {
 
     const optimalPartition = useMemo(() => {
         console.log('running optimal partition memo function');
-        return findOptimalPartition(distanceTable, numberOfGroups);
+        return findOptimalPartition(records, distanceTable, numberOfGroups);
     }, [distanceTable, numberOfGroups]);
 
     return (

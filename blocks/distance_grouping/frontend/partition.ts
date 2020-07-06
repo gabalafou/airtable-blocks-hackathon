@@ -32,7 +32,7 @@ export function scorePartition(distanceTable, partition) {
     }, 0)
 }
 
-export function findOptimalPartition(distanceTable, numberOfGroups) {
+export function findOptimalPartition(records, distanceTable, numberOfGroups) {
     if (distanceTable && numberOfGroups) {
         console.log('finding optimal partition');
         const allPartitions = createPartitions(records, numberOfGroups);
