@@ -55,7 +55,7 @@ function Main() {
     const allRecords = useRecords(view, {
         fields: [locationField]
     });
-    const records = allRecords && allRecords.filter(rec => rec.getCellValue(locationField));
+    const records = allRecords && allRecords.filter(rec => rec.getCellValueAsString(locationField));
     const distanceTable = currentDistanceTable(records, storedDistanceTable);
 
     const [origins, destinations] = findMissingDistances(records, distanceTable);

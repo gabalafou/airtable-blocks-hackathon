@@ -34,7 +34,8 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
     const origins = new Set();
     const destinations = new Set();
 
-    const locations = records => Array.from(records).map((record: typeof allOrigins) => record.getCellValue(locationField));
+    const locations = records => Array.from(records).map(
+        (record: typeof allOrigins) => record.getCellValueAsString(locationField));
     const ids = records => Array.from(records).map(({ id }) => id);
 
     const flush = async (origins, destinations) => {
