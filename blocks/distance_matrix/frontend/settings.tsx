@@ -8,7 +8,8 @@ import {
     Input,
     Heading,
     Button,
-    Label,
+    Box,
+    FormField,
 } from '@airtable/blocks/ui';
 import React from 'react';
 
@@ -23,20 +24,31 @@ export default function Settings(props) {
     const table = base.getTableByIdIfExists(tableId as string);
 
     return (
-        <div>
-            <Heading>Create a table of distances between your locations.</Heading>
-            <div>First, select your locations.</div>
-            <TablePickerSynced globalConfigKey="selectedTableId" />
-            <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
-            <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
-            <Label>Google Maps API key</Label>
-            <Input
-                placeholder="Google Maps API Key"
-                value={apiKey || ''}
-                onChange={event => setApiKey(event.currentTarget.value)}
-                disabled={!canSetApiKey}
-            />
+        <Box margin={2}>
+            <Heading>Distance Matrix settings</Heading>
+            <FormField label="Table">
+                <TablePickerSynced globalConfigKey="selectedTableId" />
+            </FormField>
+            <FormField label="View">
+                <ViewPickerSynced table={table} globalConfigKey="selectedViewId" />
+            </FormField>
+            <FormField label="Location field"
+                description="Pick a field containing addresses or coordinates."
+            >
+                <FieldPickerSynced table={table} globalConfigKey="locationFieldId" />
+            </FormField>
+            <FormField
+                label="Google Maps API key"
+                description="This key must have Maps and Distance Matrix enabled"
+            >
+                <Input
+                    placeholder="Google Maps API Key"
+                    value={apiKey || ''}
+                    onChange={event => setApiKey(event.currentTarget.value)}
+                    disabled={!canSetApiKey}
+                />
+            </FormField>
             <Button variant="primary" onClick={onDone}>Done</Button>
-        </div>
+        </Box>
     )
 }

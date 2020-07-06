@@ -9,10 +9,12 @@ import {
     TextButton,
     Loader,
     Label,
+    Box,
+    Input,
+    FormField,
 } from '@airtable/blocks/ui';
-import { settingsButton } from '@airtable/blocks';
-
 import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 import Settings from './settings';
 import {
@@ -47,6 +49,11 @@ function Main(props) {
     const apiKey = globalConfig.get('googleMapsApiKey');
     const [shouldUseMockService, setShouldUseMockService] = useState(isDev);
 
+    const resultCode: string = globalConfig.get('resultCode') as string;
+    if (!resultCode) {
+        globalConfig.setAsync('resultCode', generateResultCode());
+    }
+
     const table = base.getTableByIdIfExists(tableId as string);
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
     const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
@@ -64,7 +71,7 @@ function Main(props) {
     const hasMissingDistances = origins.size > 0 && destinations.size > 0;
 
     useEffect(() => {
-        provideTableForOtherBlocks({ tableId, viewId, storedDistanceTable });
+        provideTableForOtherBlocks({ resultCode, tableId, viewId, distanceTable: storedDistanceTable });
     }, [tableId, viewId, storedDistanceTable]);
 
     isDev && console.log('render', statusTable ? 'statusTable' : 'distanceTable', statusTable || distanceTable);
@@ -77,7 +84,7 @@ function Main(props) {
         );
     }
 
-    if (records.length > 10) {
+    if (records.length > 16) {
         return (
             <GoToSettings showSettings={props.showSettings}>
                 Too many records. Go to settings to select a smaller set of locations.
@@ -86,11 +93,10 @@ function Main(props) {
     }
 
     return (
-        <div>
-            {hasMissingDistances &&
+        <Box margin={2}>
+            {hasMissingDistances ?
                 (apiKey ?
-                    <>
-                        <div>Your table is missing data.</div>
+                    <FormField label="Your table is missing data.">
                         <Button
                             onClick={() => {
                                 const names = records => Array.from(records).map(({name}) => name);
@@ -112,12 +118,17 @@ function Main(props) {
                         >
                             Fetch missing data from Google
                         </Button>
-                    </>
+                    </FormField>
                     :
                     <GoToSettings showSettings={props.showSettings}>
                         Go to settings to enter Google Distance Matrix API Key.
                     </GoToSettings>
-                )
+                ) :
+                <FormField
+                    label="Result code (paste into blocks that accept it)"
+                >
+                    <Input value={resultCode}></Input>
+                </FormField>
             }
             {records &&
                 <DistanceTable records={records} distanceTable={statusTable || distanceTable} />
@@ -145,7 +156,7 @@ function Main(props) {
                     shouldUseMockService={shouldUseMockService}
                 />
             }
-        </div>
+        </Box>
     );
 }
 
@@ -238,7 +249,7 @@ function provideTableForOtherBlocks(data) {
 
     function handleMessage(event) {
         if (airtableBlocksOriginRe.test(event.origin) &&
-            event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
+            event.data === data.resultCode
         ) {
             isDev && console.log('received data request', event.data);
             const response = {
@@ -256,6 +267,11 @@ function provideTableForOtherBlocks(data) {
         // isDev && console.log("distance_matrix window.removeEventListener('message', handleMessage);");
         window.removeEventListener('message', handleMessage);
     }
+}
+
+function generateResultCode() {
+    const instanceId = uuidv4();
+    return `com.gabalafou.airtable-block-distance-matrix/${instanceId}/distanceTable`;
 }
 
 function DevTools(props) {

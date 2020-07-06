@@ -4,8 +4,8 @@ import isDev from './is-dev';
 
 let googleMapsLoaded;
 
-const MAX_DIMENSIONS = 10;
-const MAX_ELEMENTS = 25;
+const MAX_DIMENSIONS = 25;
+const MAX_ELEMENTS = 100;
 export const LOADING = 'loading';
 
 export async function getDistanceMatrixService(apiKey, shouldUseMockService) {
@@ -75,6 +75,33 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
             }
             return [response, status];
         });
+    }
+
+    for (const origin of allOrigins) {
+        origins.add(origin);
+        let destinationIndex = 0;
+        for (const destination of allDestinations) {
+            destinations.add(destination);
+            const isAtEndOfRow = destinationIndex === allDestinations.size - 1;
+            const requestSize = origins.size * destinations.size;
+            let shouldFlush = false;
+            if (isAtEndOfRow) {
+                const requestSizeWithAnotherRow = requestSize + allDestinations.size;
+                shouldFlush = requestSizeWithAnotherRow > MAX_ELEMENTS;
+            } else {
+                shouldFlush = (requestSize + 1) > MAX_ELEMENTS ||
+                    (destinations.size + 1) > MAX_DIMENSIONS ||
+                    (origins.size + 1) > MAX_DIMENSIONS;
+            }
+            if (shouldFlush) {
+                await flush(origins, destinations);
+                if (isAtEndOfRow) {
+                    origins.clear();
+                }
+                destinations.clear();
+            }
+            destinationIndex++;
+        }
     }
 
     for (const origin of allOrigins) {

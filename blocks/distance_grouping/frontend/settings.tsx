@@ -1,25 +1,32 @@
 import {
-    useSynced,
-    Input,
+    useGlobalConfig,
+    InputSynced,
     Button,
-    Label,
+    Heading,
+    Box,
+    FormField,
 } from '@airtable/blocks/ui';
 import React from 'react';
 
 
 export default function Settings(props) {
     const { onDone } = props;
-    const [blockResultCode, setBlockResultCode, canSetBlockResultCode] = useSynced('blockResultCode') as [string, (string) => void, boolean];
+    const globalConfig = useGlobalConfig();
+    const blockResultCode = globalConfig.get('blockResultCode');
 
     return (
-        <div>
-            <Label htmlFor="block-result-code-input">Enter the result code from running the distance matrix block</Label>
-            <Input
-                id="block-result-code-input"
-                value={blockResultCode || ''}
-                onChange={event => setBlockResultCode(event.currentTarget.value)}
-            />
+        <Box margin={2}>
+            <Heading>Distance Grouping settings</Heading>
+            {!blockResultCode &&
+                <p>Note: this block only works in conjunction with the Distance Matrix block.</p>
+            }
+            <FormField label="Enter result code from Distance Matrix block">
+                <InputSynced
+                    id="block-result-code-input"
+                    globalConfigKey="blockResultCode"
+                />
+            </FormField>
             <Button variant="primary" onClick={onDone}>Done</Button>
-        </div>
+        </Box>
     );
 }

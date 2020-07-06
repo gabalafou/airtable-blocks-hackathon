@@ -30,7 +30,10 @@ import isDev from './is-dev';
 
 
 function DistanceGroupingApp() {
-    const [isShowingSettings, setIsShowingSettings] = useState(false);
+    const globalConfig = useGlobalConfig();
+
+    const blockResultCode = globalConfig.get('blockResultCode');
+    const [isShowingSettings, setIsShowingSettings] = useState(!blockResultCode);
 
     useSettingsButton(function toggleSettings() {
         setIsShowingSettings(!isShowingSettings);
@@ -40,16 +43,15 @@ function DistanceGroupingApp() {
         return <Settings onDone={() => void setIsShowingSettings(false)} />;
     }
 
-    return <Main />;
+    return <Main blockResultCode={blockResultCode} />;
 }
 
 
-function Main() {
+function Main({blockResultCode}) {
     const base = useBase();
     const globalConfig = useGlobalConfig();
 
-    const blockResultCode = globalConfig.get('blockResultCode');
-    const numberOfGroups = Number(globalConfig.get('numberOfGroups'));
+    const numberOfGroups = Number(globalConfig.get('numberOfGroups') || 1);
 
     const [shouldUseMockDistanceTable, setShouldUseMockDistanceTable] = useState(isDev);
     const [tableId, setTableId] = useState(shouldUseMockDistanceTable ? 'tblm9dueBPkf4dvCO' : '');
@@ -74,9 +76,7 @@ function Main() {
     }, [records, shouldUseMockDistanceTable])
 
     useEffect(() => {
-        if (shouldUseMockDistanceTable) {
-            return;
-        } else {
+        if (!shouldUseMockDistanceTable) {
             connectWithDistanceMatrixBlock(blockResultCode, message => {
                 setTableId(message.tableId);
                 setViewId(message.viewId);
@@ -88,10 +88,10 @@ function Main() {
     const optimalPartition = useMemo(() => {
         isDev && console.log('running optimal partition memo function');
         return findOptimalPartition(records, distanceTable, numberOfGroups);
-    }, [distanceTable, numberOfGroups]);
+    }, [records, distanceTable, numberOfGroups]);
 
     return (
-        <div>
+        <Box margin={2}>
             <Box>
                 <Label htmlFor="number-of-groups-input">Number of groups</Label>
                 <InputSynced
@@ -126,7 +126,7 @@ function Main() {
                     <Label htmlFor="mock-distance-matrix-checkbox">Use mock distance matrix</Label>
                 </div>
             }
-        </div>
+        </Box>
     );
 }
 
@@ -201,17 +201,19 @@ function SaveField(props) {
 
     return (
         <>
-            <FormField label="Save to single select field in table">
-                <FieldPickerSynced
-                    table={table}
-                    globalConfigKey="groupFieldId"
-                    allowedTypes={[FieldType.SINGLE_SELECT]}
-                />
+            <FormField label="Save results">
+                <Box display="flex" flexDirection="row">
+                    <FieldPickerSynced
+                        placeholder="Pick a single select type field..."
+                        table={table}
+                        globalConfigKey="groupFieldId"
+                        allowedTypes={[FieldType.SINGLE_SELECT]}
+                    />
+                    <Button variant="primary" onClick={savePartition} disabled={!groupField}>
+                        Save
+                    </Button>
+                </Box>
             </FormField>
-            {
-                groupField &&
-                <Button onClick={savePartition}>Save</Button>
-            }
         </>
     );
 
@@ -251,7 +253,16 @@ function requestDistanceMatrix(blockResultCode) {
         if (frame === window) {
             continue;
         }
-        console.log('posting message with blockResultCode', blockResultCode);
+        isDev && console.log('posting message with blockResultCode', blockResultCode);
         frame.postMessage(blockResultCode, '*');
     }
+}
+
+function GoToSettings(props) {
+    return (
+        <>
+            <div>{props.children}</div>
+            <TextButton aria-label="Go to settings" onClick={() => props.showSettings()}>Settings</TextButton>
+        </>
+    );
 }
