@@ -4,14 +4,11 @@ import {
     useBase,
     useGlobalConfig,
     useRecords,
-    Input,
     Label,
     Button,
     colors,
     useSettingsButton,
     FieldPickerSynced,
-    Switch,
-    SwitchSynced,
     InputSynced,
     Box,
     expandRecord,
@@ -23,7 +20,6 @@ import Settings from './settings';
 import {
     createPartitions,
     scorePartition,
-    isValidPartition,
 } from './partition';
 
 

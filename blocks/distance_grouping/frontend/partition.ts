@@ -30,13 +30,6 @@ export function scorePartition(distanceTable, partition) {
     }, 0)
 }
 
-// reject partitions where the group sizes differ by more than 1
-export function isValidPartition(partition) {
-    const max = Math.max(...partition.map(group => group.length));
-    const min = Math.min(...partition.map(group => group.length));
-    return max - min <= 1;
-}
-
 function pick(list, items) {
     var length = list.length, selected = [], rest = [];
 
