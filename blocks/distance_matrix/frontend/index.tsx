@@ -6,9 +6,12 @@ import {
     useSynced,
     Button,
     useSettingsButton,
+    TextButton,
     Loader,
     Label,
 } from '@airtable/blocks/ui';
+import { settingsButton } from '@airtable/blocks';
+
 import React, { useState, useEffect } from 'react';
 
 import Settings from './settings';
@@ -32,11 +35,11 @@ function DistanceMatrixApp() {
         return <Settings onDone={() => void setIsShowingSettings(false)} />;
     }
 
-    return <Main />;
+    return <Main showSettings={() => void setIsShowingSettings(true)} />;
 }
 
 
-function Main() {
+function Main(props) {
     const base = useBase();
     const globalConfig = useGlobalConfig();
     const tableId = globalConfig.get('selectedTableId');
@@ -67,13 +70,30 @@ function Main() {
         provideTableForOtherBlocks({ tableId, viewId, storedDistanceTable });
     }, [tableId, viewId, storedDistanceTable]);
 
-    console.log('render, distance table', distanceTable);
+    console.log('render', statusTable ? 'statusTable' : 'distanceTable', statusTable || distanceTable);
+
+    if (!locationField) {
+        return (
+            <GoToSettings showSettings={props.showSettings}>
+                Go to settings to select locations.
+            </GoToSettings>
+        );
+    }
+
+    if (records.length > 10) {
+        return (
+            <GoToSettings showSettings={props.showSettings}>
+                Too many records. Go to settings to select a smaller set of locations.
+            </GoToSettings>
+        );
+    }
 
     return (
         <div>
-            {locationField &&
-                <>
-                    {hasMissingDistances &&
+            {hasMissingDistances &&
+                (apiKey ?
+                    <>
+                        <div>Your table is missing data.</div>
                         <Button
                             onClick={() => {
                                 const names = records => Array.from(records).map(({name}) => name);
@@ -93,36 +113,40 @@ function Main() {
                             }}
                             disabled={!apiKey}
                         >
-                            Fetch distances from Google Maps
+                            Fetch missing data from Google
                         </Button>
-                    }
-                    {records &&
-                        <DistanceTable records={records} distanceTable={statusTable || distanceTable} />
-                    }
-                    {records && isDev &&
-                        <DevTools
-                            onClearAll={() => {
-                                setStoredDistanceTable(null);
-                            }}
-                            onClearSome={() => {
-                                if (distanceTable) {
-                                    const keys = Object.keys(distanceTable);
-                                    keys.forEach(originId => {
-                                        keys.forEach(destinationId => {
-                                            const shouldUnsetValue = Math.random() < 0.1;
-                                            if (shouldUnsetValue) {
-                                                delete distanceTable[originId][destinationId];
-                                            }
-                                        });
-                                    });
-                                    setStoredDistanceTable({ ...distanceTable });
-                                }
-                            }}
-                            onChangeShouldUseMockService={value => setShouldUseMockService(value)}
-                            shouldUseMockService={shouldUseMockService}
-                        />
-                    }
-                </>
+                    </>
+                    :
+                    <GoToSettings showSettings={props.showSettings}>
+                        Go to settings to enter Google Distance Matrix API Key.
+                    </GoToSettings>
+                )
+            }
+            {records &&
+                <DistanceTable records={records} distanceTable={statusTable || distanceTable} />
+            }
+            {records && isDev &&
+                <DevTools
+                    onClearAll={() => {
+                        setStoredDistanceTable(null);
+                    }}
+                    onClearSome={() => {
+                        if (distanceTable) {
+                            const keys = Object.keys(distanceTable);
+                            keys.forEach(originId => {
+                                keys.forEach(destinationId => {
+                                    const shouldUnsetValue = Math.random() < 0.1;
+                                    if (shouldUnsetValue) {
+                                        delete distanceTable[originId][destinationId];
+                                    }
+                                });
+                            });
+                            setStoredDistanceTable({ ...distanceTable });
+                        }
+                    }}
+                    onChangeShouldUseMockService={value => setShouldUseMockService(value)}
+                    shouldUseMockService={shouldUseMockService}
+                />
             }
         </div>
     );
@@ -131,16 +155,17 @@ function Main() {
 function currentDistanceTable(records, storedDistanceTable) {
     const distanceTable = {};
 
-    // update distance table
-    const recordIds = records.map(({ id }) => id);
-    recordIds.forEach(originId => {
-        distanceTable[originId] = {};
-        recordIds.forEach(destinationId => {
-            const storedValue = storedDistanceTable && storedDistanceTable[originId] &&
-                storedDistanceTable[originId][destinationId];
-            distanceTable[originId][destinationId] = storedValue;
+    if (records) {
+        const recordIds = records.map(({ id }) => id);
+        recordIds.forEach(originId => {
+            distanceTable[originId] = {};
+            recordIds.forEach(destinationId => {
+                const storedValue = storedDistanceTable && storedDistanceTable[originId] &&
+                    storedDistanceTable[originId][destinationId];
+                distanceTable[originId][destinationId] = storedValue;
+            });
         });
-    });
+    }
 
     return distanceTable;
 }
@@ -297,5 +322,14 @@ function DistanceTable({records, distanceTable}) {
         </table>
     );
 };
+
+function GoToSettings(props) {
+    return (
+        <>
+            <div>{props.children}</div>
+            <TextButton aria-label="Go to settings" onClick={() => props.showSettings()}>Settings</TextButton>
+        </>
+    );
+}
 
 initializeBlock(() => <DistanceMatrixApp />);
