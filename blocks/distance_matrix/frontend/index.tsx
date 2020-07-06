@@ -19,7 +19,6 @@ import {
 } from './api-helpers';
 
 
-const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
 const isDev = window.location.hostname.startsWith('devblock');
 
 function DistanceMatrixApp() {
@@ -36,7 +35,6 @@ function DistanceMatrixApp() {
     return <Main />;
 }
 
-const subscribersToOrigins = new Map();
 
 function Main() {
     const base = useBase();
@@ -51,63 +49,23 @@ function Main() {
     const view = table ? table.getViewByIdIfExists(viewId as string) : null;
     const locationField = table ? table.getFieldByIdIfExists(locationFieldId as string) : null;
 
-    const [distanceTable, setDistanceTable, canSetDistanceTable] = useSynced('distanceTable');
+    const [storedDistanceTable, setStoredDistanceTable, canSetStoredDistanceTable] = useSynced('distanceTable');
     const [statusTable, setStatusTable] = useState(null);
 
-    const allRecords = useRecords(view);
+    const allRecords = useRecords(view, {
+        fields: [locationField]
+    });
     const records = allRecords && allRecords.filter(rec => rec.getCellValue(locationField));
+    const distanceTable = currentDistanceTable(records, storedDistanceTable);
 
-    const origins = new Set();
-    const destinations = new Set();
+    const [origins, destinations] = findMissingDistances(records, distanceTable);
+    const hasMissingDistances = origins.size > 0 && destinations.size > 0;
 
-    if (records && locationField) {
-        records.forEach(origin => {
-            records.forEach(destination => {
-                if (!distanceTable ||
-                    !distanceTable[origin.id] ||
-                    !distanceTable[origin.id].hasOwnProperty(destination.id)
-                ) {
-                    origins.add(origin);
-                    destinations.add(destination);
-                }
-            });
-        });
-    }
+    console.log({hasMissingDistances})
 
     useEffect(() => {
-        function handleMessage(event) {
-            if (airtableBlocksOriginRe.test(event.origin) &&
-                event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
-            ) {
-                console.log('received data request', event.data);
-                const response = {
-                    request: event.data,
-                    tableId,
-                    viewId,
-                    distanceTable,
-                };
-                console.log('sending response', response);
-                subscribersToOrigins.set(event.source, event.origin);
-                event.source.postMessage(response, event.origin);
-            }
-        }
-        // console.log("distance_matrix window.addEventListener('message', handleMessage);");
-        window.addEventListener('message', handleMessage);
-        return function stopListening() {
-            // console.log("distance_matrix window.removeEventListener('message', handleMessage);");
-            window.removeEventListener('message', handleMessage);
-        }
-    }, [tableId, viewId, distanceTable]);
-
-    useEffect(() => {
-        console.log('sending distanceTable to subscribers', Array.from(subscribersToOrigins));
-        subscribersToOrigins.forEach((origin, subscriber) => {
-            const message = {
-                tableId, viewId, distanceTable
-            };
-            subscriber.postMessage(message, origin)
-        });
-    }, [tableId, viewId, distanceTable]);
+        provideTableForOtherBlocks({ tableId, viewId, storedDistanceTable });
+    }, [tableId, viewId, storedDistanceTable]);
 
     console.log('render, distance table', distanceTable);
 
@@ -115,37 +73,18 @@ function Main() {
         <div>
             {locationField &&
                 <>
-                    {origins.size > 0 && destinations.size > 0 &&
+                    {hasMissingDistances &&
                         <Button
                             onClick={() => {
-                                const originNames = Array.from(origins).map(({name})=>name);
-                                const destinationNames = Array.from(destinations).map(({name})=>name);
-                                console.log('onClickFetch', { originNames, destinationNames });
+                                const names = records => Array.from(records).map(({name}) => name);
+                                console.log('onClickFetch', { originNames: names(origins), destinationNames: names(destinations) });
                                 const getService = () => getDistanceMatrixService(apiKey, shouldUseMockService);
                                 getDistanceMatrix(getService, origins, destinations, locationField, (result, isDone) => {
-
-                                    const updatedTable = { ...(distanceTable || statusTable || {}) };
-                                    console.log('updatingDistanceTable')
-
-                                    // update distance table
-                                    const recordIds = records.map(({ id }) => id);
-                                    recordIds.forEach(originId => {
-                                        if (!updatedTable[originId]) {
-                                            updatedTable[originId] = {};
-                                        }
-                                        recordIds.forEach(destinationId => {
-                                            const originalValue = updatedTable[originId][destinationId];
-                                            const updatedValue = result[originId] && result[originId][destinationId];
-                                            updatedTable[originId][destinationId] = updatedValue != null ?
-                                                updatedValue :
-                                                originalValue;
-
-                                        });
-                                    });
-
+                                    const updatedTable = updateDistanceTable(distanceTable, result);
                                     if (isDone) {
                                         console.log('PROGRESS', 'isDone');
-                                        setDistanceTable(updatedTable);
+                                        setStatusTable(null);
+                                        setStoredDistanceTable(updatedTable);
                                     } else {
                                         console.log('PROGRESS', 'setStatusTable');
                                         setStatusTable(updatedTable);
@@ -158,28 +97,25 @@ function Main() {
                         </Button>
                     }
                     {records &&
-                        <DistanceTable records={records} distanceTable={distanceTable || statusTable} />
+                        <DistanceTable records={records} distanceTable={statusTable || distanceTable} />
                     }
                     {records && isDev &&
                         <DevTools
                             onClearAll={() => {
-                                setStatusTable(null);
-                                setDistanceTable(null);
+                                setStoredDistanceTable(null);
                             }}
                             onClearSome={() => {
                                 if (distanceTable) {
                                     const keys = Object.keys(distanceTable);
                                     keys.forEach(originId => {
                                         keys.forEach(destinationId => {
-                                            const value = distanceTable[originId][destinationId];
                                             const shouldUnsetValue = Math.random() < 0.1;
                                             if (shouldUnsetValue) {
                                                 delete distanceTable[originId][destinationId];
                                             }
                                         });
                                     });
-                                    setStatusTable(null);
-                                    setDistanceTable({ ...distanceTable });
+                                    setStoredDistanceTable({ ...distanceTable });
                                 }
                             }}
                             onChangeShouldUseMockService={value => setShouldUseMockService(value)}
@@ -190,6 +126,114 @@ function Main() {
             }
         </div>
     );
+}
+
+function currentDistanceTable(records, storedDistanceTable) {
+    const distanceTable = {};
+
+    // update distance table
+    const recordIds = records.map(({ id }) => id);
+    recordIds.forEach(originId => {
+        distanceTable[originId] = {};
+        recordIds.forEach(destinationId => {
+            const storedValue = storedDistanceTable && storedDistanceTable[originId] &&
+                storedDistanceTable[originId][destinationId];
+            distanceTable[originId][destinationId] = storedValue;
+        });
+    });
+
+    return distanceTable;
+}
+
+function findMissingDistances(records, distanceTable) {
+    const origins = new Set();
+    const destinations = new Set();
+
+    if (records) {
+        records.forEach(origin => {
+            records.forEach(destination => {
+                if (!distanceTable ||
+                    !distanceTable[origin.id] ||
+                    !distanceTable[origin.id][destination.id]
+                ) {
+                    origins.add(origin);
+                    destinations.add(destination);
+                }
+            });
+        });
+    }
+
+    return [origins, destinations];
+}
+
+function updateDistanceTable(distanceTable, result) {
+    console.log('updatingDistanceTable')
+
+    const table = {};
+
+    Object.keys(distanceTable).forEach(originId => {
+        table[originId] = {};
+        Object.keys(distanceTable[originId]).forEach(destinationId => {
+            const originalValue = distanceTable[originId][destinationId];
+            const updatedValue = result[originId] && result[originId][destinationId];
+            table[originId][destinationId] = updatedValue != null ?
+                updatedValue :
+                originalValue;
+        });
+    })
+
+    return table;
+}
+
+// function updateDistanceTable(records, distanceTable, result) {
+//     console.log('updatingDistanceTable')
+
+//     // update distance table
+//     const recordIds = records.map(({ id }) => id);
+//     recordIds.forEach(originId => {
+//         if (!updatedTable[originId]) {
+//             updatedTable[originId] = {};
+//         }
+//         recordIds.forEach(destinationId => {
+//             const originalValue = updatedTable[originId][destinationId];
+//             const updatedValue = result[originId] && result[originId][destinationId];
+//             updatedTable[originId][destinationId] = updatedValue != null ?
+//                 updatedValue :
+//                 originalValue;
+
+//         });
+//     });
+// }
+
+const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
+const subscribersToOrigins = new Map();
+function provideTableForOtherBlocks(data) {
+    console.log('sending distanceTable to subscribers', Array.from(subscribersToOrigins));
+    subscribersToOrigins.forEach((origin, subscriber) => {
+        const message = data;
+        subscriber.postMessage(message, origin)
+    });
+
+    function handleMessage(event) {
+        if (airtableBlocksOriginRe.test(event.origin) &&
+            event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
+        ) {
+            console.log('received data request', event.data);
+            const response = {
+                request: event.data,
+                ...data,
+            };
+            console.log('sending response', response);
+            subscribersToOrigins.set(event.source, event.origin);
+            event.source.postMessage(response, event.origin);
+        }
+    }
+    // console.log("distance_matrix window.addEventListener('message', handleMessage);");
+    window.addEventListener('message', handleMessage);
+    return function stopListening() {
+        // console.log("distance_matrix window.removeEventListener('message', handleMessage);");
+        window.removeEventListener('message', handleMessage);
+    }
 }
 
 function DevTools(props) {
