@@ -247,7 +247,11 @@ function createMockDistanceTable(origins, destinations) {
     origins.forEach(origin => {
         distanceTable[origin.id] = {};
         destinations.forEach(destination => {
-            distanceTable[origin.id][destination.id] = Math.random() * 100;
+            distanceTable[origin.id][destination.id] = {
+                distance: {
+                    value: Math.random() * 100
+                }
+            };
         });
     });
     return distanceTable;
