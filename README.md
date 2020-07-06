@@ -32,6 +32,8 @@ I would go into the repo and modify the remote.json file, changing it to match y
 That way, you won't have to add the `--remote <name>` option every time you want to run
 `block run` or `block release`. 
 
+Note: each of the blocks is its own separate environment, so I'm not sure you should try to share any files between the two.
+
 
 # Todos
 
