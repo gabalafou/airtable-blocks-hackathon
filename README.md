@@ -35,9 +35,9 @@ That way, you won't have to add the `--remote <name>` option every time you want
 
 # Todos
 
-- [] Tests
-- [] Better UI
+- [ ] Tests
+- [ ] Better UI
 - [ ] Onboarding
 - [ ] Fix combinatoric/scaling issues (partition/grouping/finding best group)
-- [] Fix matrix chunking logic 
+- [ ] Fix matrix chunking logic 
 (The current logic requests more data than needed from Google. There seems to be some tradeoff to make between asking for redundant data versus number of requests.)
