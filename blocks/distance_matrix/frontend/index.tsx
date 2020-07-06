@@ -64,8 +64,6 @@ function Main(props) {
     const [origins, destinations] = findMissingDistances(records, distanceTable);
     const hasMissingDistances = origins.size > 0 && destinations.size > 0;
 
-    console.log({hasMissingDistances})
-
     useEffect(() => {
         provideTableForOtherBlocks({ tableId, viewId, storedDistanceTable });
     }, [tableId, viewId, storedDistanceTable]);

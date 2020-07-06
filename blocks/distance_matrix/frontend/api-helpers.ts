@@ -174,17 +174,10 @@ function mockDistanceMatrixService() {
     };
 }
 
-// will match any two floats separated by a comma
-const latLngRe = /(?<lat>\d+(\.\d+)?).*?,.*?(?<lng>\d+(\.\d+)?)/;
-
 function parseLocation(location) {
     if (location.startsWith('🔵 ')) {
         const locationData = parseGeocodeCacheValue(location);
         const { o: { lat, lng } } = locationData;
-        return new google.maps.LatLng(lat, lng);
-    } else if (latLngRe.test(location)) {
-        const matches = latLngRe.exec(location);
-        const { lat, lng } = matches.groups;
         return new google.maps.LatLng(lat, lng);
     } else {
         return location;
