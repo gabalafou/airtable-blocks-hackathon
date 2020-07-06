@@ -26,9 +26,8 @@ import {
     addChoicesToSelectField,
     createMockDistanceTable,
 } from './helpers';
+import isDev from './is-dev';
 
-
-const isDev = window.location.hostname.indexOf('devblock') > -1;
 
 function DistanceGroupingApp() {
     const [isShowingSettings, setIsShowingSettings] = useState(false);
@@ -63,7 +62,7 @@ function Main() {
 
     const records = useRecords(view);
 
-    console.log('render, recordIds', records && records.map(({id}) => id));
+    isDev && console.log('render, record names', records && records.map(({name}) => name));
 
     let [distanceTable, setDistanceTable] = useState(null);
     distanceTable = useMemo(() => {
@@ -87,7 +86,7 @@ function Main() {
     }, [blockResultCode, shouldUseMockDistanceTable]);
 
     const optimalPartition = useMemo(() => {
-        console.log('running optimal partition memo function');
+        isDev && console.log('running optimal partition memo function');
         return findOptimalPartition(records, distanceTable, numberOfGroups);
     }, [distanceTable, numberOfGroups]);
 
@@ -163,7 +162,8 @@ function SaveField(props) {
         const colorArray = Object.keys(colors)
             .filter(colorStr => colorStr.includes('_'))
             .sort((a, b) => a.length - b.length);
-        console.log(colorArray);
+
+        isDev && console.log(colorArray);
 
         const choices = [];
         for (let i = 0; i < optimalPartition.length; i++) {
@@ -178,7 +178,9 @@ function SaveField(props) {
                 savedChoice.name === choice.name
             })
         );
-        console.log('unsavedChocies', unsavedChoices);
+
+        isDev && console.log('unsavedChocies', unsavedChoices);
+
         if (unsavedChoices.length) {
             await addChoicesToSelectField(groupField, unsavedChoices);
         }
@@ -218,7 +220,7 @@ function SaveField(props) {
 function connectWithDistanceMatrixBlock(blockResultCode, callback) {
     let intervalId;
     function handleMessage(event) {
-        console.log('main block, received message', event.data);
+        isDev && console.log('main block, received message', event.data);
         if (event && event.data && event.data.request === blockResultCode) {
             if (intervalId) {
                 clearInterval(intervalId);
@@ -226,7 +228,9 @@ function connectWithDistanceMatrixBlock(blockResultCode, callback) {
             callback(event.data);
         }
     }
-    console.log('main block', "window.addEventListener('message', handleMessage);");
+
+    isDev && console.log('Distance Grouping block', 'setting up message event listener');
+
     window.addEventListener('message', handleMessage);
     let intervalCount = 1;
     intervalId = setInterval(() => {
@@ -236,7 +240,7 @@ function connectWithDistanceMatrixBlock(blockResultCode, callback) {
         }
     }, 1000);
     return function stopListening() {
-        console.log('main block', "window.removeEventListener('message', handleMessage);")
+        isDev && console.log('Distance Grouping block', "tearing down message event listener");
         window.removeEventListener('message', handleMessage);
     };
 }

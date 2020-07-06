@@ -1,3 +1,6 @@
+import isDev from './is-dev';
+
+
 export function createPartitions(items, numberOfGroups) {
     const numberOfItems = items.length;
     if (numberOfGroups > numberOfItems) {
@@ -15,7 +18,7 @@ export function createPartitions(items, numberOfGroups) {
     }
 
     const divisions = groupSizes.slice(0, -1);
-    console.log('grouping', items.length, divisions);
+    isDev && console.log('grouping', items.length, divisions);
     return group(items, divisions);
 }
 
@@ -34,19 +37,19 @@ export function scorePartition(distanceTable, partition) {
 
 export function findOptimalPartition(records, distanceTable, numberOfGroups) {
     if (distanceTable && numberOfGroups) {
-        console.log('finding optimal partition');
+        isDev && console.log('finding optimal partition');
         const allPartitions = createPartitions(records, numberOfGroups);
-        console.log('allPartitions', allPartitions, 'records.length', records.length, 'numberOfGroups', numberOfGroups);
+        isDev && console.log('allPartitions', allPartitions, 'records.length', records.length, 'numberOfGroups', numberOfGroups);
 
         const partitionScores = allPartitions.map(partition => scorePartition(distanceTable, partition));
-        console.log('partitionScores', partitionScores);
+        isDev && console.log('partitionScores', partitionScores);
 
         const minimumScore = partitionScores.reduce((left, right) => {
             return Math.min(left, right);
         }, Infinity);
         const indexMinimum = partitionScores.indexOf(minimumScore);
 
-        console.log('optimal partition', allPartitions[indexMinimum], 'score', minimumScore);
+        isDev && console.log('optimal partition', allPartitions[indexMinimum], 'score', minimumScore);
         return allPartitions[indexMinimum];
     }
 }

@@ -20,9 +20,8 @@ import {
     getDistanceMatrixService,
     LOADING,
 } from './api-helpers';
+import isDev from './is-dev';
 
-
-const isDev = window.location.hostname.startsWith('devblock');
 
 function DistanceMatrixApp() {
     const [isShowingSettings, setIsShowingSettings] = useState(false);
@@ -68,7 +67,7 @@ function Main(props) {
         provideTableForOtherBlocks({ tableId, viewId, storedDistanceTable });
     }, [tableId, viewId, storedDistanceTable]);
 
-    console.log('render', statusTable ? 'statusTable' : 'distanceTable', statusTable || distanceTable);
+    isDev && console.log('render', statusTable ? 'statusTable' : 'distanceTable', statusTable || distanceTable);
 
     if (!locationField) {
         return (
@@ -95,16 +94,16 @@ function Main(props) {
                         <Button
                             onClick={() => {
                                 const names = records => Array.from(records).map(({name}) => name);
-                                console.log('onClickFetch', { originNames: names(origins), destinationNames: names(destinations) });
+                                isDev && console.log('onClickFetch', { originNames: names(origins), destinationNames: names(destinations) });
                                 const getService = () => getDistanceMatrixService(apiKey, shouldUseMockService);
                                 getDistanceMatrix(getService, origins, destinations, locationField, (result, isDone) => {
                                     const updatedTable = updateDistanceTable(distanceTable, result);
                                     if (isDone) {
-                                        console.log('PROGRESS', 'isDone');
+                                        isDev && console.log('PROGRESS', 'isDone');
                                         setStatusTable(null);
                                         setStoredDistanceTable(updatedTable);
                                     } else {
-                                        console.log('PROGRESS', 'setStatusTable');
+                                        isDev && console.log('PROGRESS', 'setStatusTable');
                                         setStatusTable(updatedTable);
                                     }
                                 });
@@ -190,7 +189,7 @@ function findMissingDistances(records, distanceTable) {
 }
 
 function updateDistanceTable(distanceTable, result) {
-    console.log('updatingDistanceTable')
+    isDev && console.log('updatingDistanceTable')
 
     const table = {};
 
@@ -209,7 +208,7 @@ function updateDistanceTable(distanceTable, result) {
 }
 
 // function updateDistanceTable(records, distanceTable, result) {
-//     console.log('updatingDistanceTable')
+//     isDev && console.log('updatingDistanceTable')
 
 //     // update distance table
 //     const recordIds = records.map(({ id }) => id);
@@ -231,7 +230,7 @@ function updateDistanceTable(distanceTable, result) {
 const airtableBlocksOriginRe = new RegExp('^https://.+\.airtableblocks\.com$|^https://localhost(:.+)?$');
 const subscribersToOrigins = new Map();
 function provideTableForOtherBlocks(data) {
-    console.log('sending distanceTable to subscribers', Array.from(subscribersToOrigins));
+    isDev && console.log('sending distanceTable to subscribers', Array.from(subscribersToOrigins));
     subscribersToOrigins.forEach((origin, subscriber) => {
         const message = data;
         subscriber.postMessage(message, origin)
@@ -241,20 +240,20 @@ function provideTableForOtherBlocks(data) {
         if (airtableBlocksOriginRe.test(event.origin) &&
             event.data === 'com.gabalafou.airtable-block.distance-matrix/test-id'
         ) {
-            console.log('received data request', event.data);
+            isDev && console.log('received data request', event.data);
             const response = {
                 request: event.data,
                 ...data,
             };
-            console.log('sending response', response);
+            isDev && console.log('sending response', response);
             subscribersToOrigins.set(event.source, event.origin);
             event.source.postMessage(response, event.origin);
         }
     }
-    // console.log("distance_matrix window.addEventListener('message', handleMessage);");
+    // isDev && console.log("distance_matrix window.addEventListener('message', handleMessage);");
     window.addEventListener('message', handleMessage);
     return function stopListening() {
-        // console.log("distance_matrix window.removeEventListener('message', handleMessage);");
+        // isDev && console.log("distance_matrix window.removeEventListener('message', handleMessage);");
         window.removeEventListener('message', handleMessage);
     }
 }

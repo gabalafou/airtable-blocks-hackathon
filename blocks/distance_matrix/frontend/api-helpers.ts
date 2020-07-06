@@ -1,6 +1,5 @@
-import {
-    loadScriptFromURLAsync,
-} from '@airtable/blocks/ui';
+import { loadScriptFromURLAsync } from '@airtable/blocks/ui';
+import isDev from './is-dev';
 
 
 let googleMapsLoaded;
@@ -49,7 +48,7 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
         const destinationIds = ids(destinations);
 
         const names = records => Array.from(records).map(({ name }) => name);
-        console.log('progress Fetching...', 'origins', names(origins), 'destinations', names(destinations));
+        isDev && console.log('progress Fetching...', 'origins', names(origins), 'destinations', names(destinations));
 
         progress(distanceTable);
 
@@ -69,8 +68,8 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
                     });
                 });
 
-                console.log('progress Fetched', 'origins', names(origins), 'destination', names(destinations));
-                console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
+                isDev && console.log('progress Fetched', 'origins', names(origins), 'destination', names(destinations));
+                isDev && console.log('JSON.stringify(distanceTable)', JSON.stringify(distanceTable));
 
                 progress(distanceTable);
             }
@@ -110,7 +109,7 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
         await flush(origins, destinations);
     }
 
-    console.log('progress Done.', JSON.stringify(distanceTable));
+    isDev && console.log('progress Done.', JSON.stringify(distanceTable));
 
     progress(distanceTable, true);
 
@@ -123,12 +122,12 @@ function parseGeocodeCacheValue(cacheValue) {
 }
 
 async function fetchDistanceMatrix(service, params, options) {
-    console.log('fetchDistanceMatrix( params =', params, ')');
+    isDev && console.log('fetchDistanceMatrix( params =', params, ')');
     let retryCount = 1;
     return (function recurse() {
         return new Promise(resolve => {
             service.getDistanceMatrix(params, (response, status) => {
-                console.log('google maps response', response, status, retryCount);
+                isDev && console.log('google maps response', response, status, retryCount);
                 const { OVER_QUERY_LIMIT } = google.maps.DistanceMatrixStatus;
                 if (options.retry && status === OVER_QUERY_LIMIT) {
                     setTimeout(() => {
