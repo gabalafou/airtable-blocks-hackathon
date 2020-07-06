@@ -14,7 +14,9 @@ export function createPartitions(items, numberOfGroups) {
         groupSizes[groupSizeIndex] = 1 + (groupSizes[groupSizeIndex] || 0);
     }
 
-    return group(items, groupSizes.slice(0, -1));
+    const divisions = groupSizes.slice(0, -1);
+    console.log('grouping', items.length, divisions);
+    return group(items, divisions);
 }
 
 export function scorePartition(distanceTable, partition) {
@@ -28,6 +30,25 @@ export function scorePartition(distanceTable, partition) {
         });
         return score + distanceSum;
     }, 0)
+}
+
+export function findOptimalPartition(distanceTable, numberOfGroups) {
+    if (distanceTable && numberOfGroups) {
+        console.log('finding optimal partition');
+        const allPartitions = createPartitions(records, numberOfGroups);
+        console.log('allPartitions', allPartitions, 'records.length', records.length, 'numberOfGroups', numberOfGroups);
+
+        const partitionScores = allPartitions.map(partition => scorePartition(distanceTable, partition));
+        console.log('partitionScores', partitionScores);
+
+        const minimumScore = partitionScores.reduce((left, right) => {
+            return Math.min(left, right);
+        }, Infinity);
+        const indexMinimum = partitionScores.indexOf(minimumScore);
+
+        console.log('optimal partition', allPartitions[indexMinimum], 'score', minimumScore);
+        return allPartitions[indexMinimum];
+    }
 }
 
 function pick(list, items) {

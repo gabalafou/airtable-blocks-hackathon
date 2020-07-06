@@ -220,6 +220,8 @@ function DistanceMatrixApp() {
     return <Main />;
 }
 
+const subscribersToOrigins = new Map();
+
 function Main() {
     const base = useBase();
     const globalConfig = useGlobalConfig();
@@ -270,6 +272,7 @@ function Main() {
                     distanceTable,
                 };
                 console.log('sending response', response);
+                subscribersToOrigins.set(event.source, event.origin);
                 event.source.postMessage(response, event.origin);
             }
         }
@@ -279,6 +282,16 @@ function Main() {
             // console.log("distance_matrix window.removeEventListener('message', handleMessage);");
             window.removeEventListener('message', handleMessage);
         }
+    }, [tableId, viewId, distanceTable]);
+
+    useEffect(() => {
+        console.log('sending distanceTable to subscribers', Array.from(subscribersToOrigins));
+        subscribersToOrigins.forEach((origin, subscriber) => {
+            const message = {
+                tableId, viewId, distanceTable
+            };
+            subscriber.postMessage(message, origin)
+        });
     }, [tableId, viewId, distanceTable]);
 
     console.log('render, distance table', distanceTable);
