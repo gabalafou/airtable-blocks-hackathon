@@ -84,12 +84,9 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
                 destinations.add(destination);
             }
             const isAtEndOfRow = destinations.size === allDestinations.size;
-            const isAtEnd = allOrigins.size === origins.size && allDestinations.size === destinations.size;
             const requestSize = origins.size * destinations.size;
             let shouldFlush = false;
-            if (isAtEnd) {
-                shouldFlush = true;
-            } else if (isAtEndOfRow) {
+            if (isAtEndOfRow) {
                 const requestSizeWithAnotherRow = requestSize + allDestinations.size;
                 shouldFlush = requestSizeWithAnotherRow > MAX_ELEMENTS;
             } else {
