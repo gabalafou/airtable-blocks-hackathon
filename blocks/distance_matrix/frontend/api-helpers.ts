@@ -1,5 +1,5 @@
 import {
-  loadScriptFromURLAsync,
+    loadScriptFromURLAsync,
 } from '@airtable/blocks/ui';
 
 
@@ -121,74 +121,74 @@ export async function getDistanceMatrix(getService, allOrigins, allDestinations,
 
 
 function parseGeocodeCacheValue(cacheValue) {
-  return JSON.parse(atob(cacheValue.replace('🔵 ', '')));
+    return JSON.parse(atob(cacheValue.replace('🔵 ', '')));
 }
 
 async function fetchDistanceMatrix(service, params, options) {
-  console.log('fetchDistanceMatrix( params =', params, ')');
-  let retryCount = 1;
-  return (function recurse() {
-    return new Promise(resolve => {
-      service.getDistanceMatrix(params, (response, status) => {
-        console.log('google maps response', response, status, retryCount);
-        const { OVER_QUERY_LIMIT } = google.maps.DistanceMatrixStatus;
-        if (options.retry && status === OVER_QUERY_LIMIT) {
-          setTimeout(() => {
-            retryCount++;
-            resolve(recurse());
-          }, options.retry)
-        } else {
-          resolve([response, status]);
-        }
-      });
-    });
-  })();
+    console.log('fetchDistanceMatrix( params =', params, ')');
+    let retryCount = 1;
+    return (function recurse() {
+        return new Promise(resolve => {
+            service.getDistanceMatrix(params, (response, status) => {
+                console.log('google maps response', response, status, retryCount);
+                const { OVER_QUERY_LIMIT } = google.maps.DistanceMatrixStatus;
+                if (options.retry && status === OVER_QUERY_LIMIT) {
+                    setTimeout(() => {
+                        retryCount++;
+                        resolve(recurse());
+                    }, options.retry)
+                } else {
+                    resolve([response, status]);
+                }
+            });
+        });
+    })();
 
 }
 
 function mockDistanceMatrixService() {
-  return {
-    getDistanceMatrix(params, callback) {
-      const { origins, destinations } = params;
-      const randomDelay = Math.random() * 1500;
-      setTimeout(() => {
-        const status = Math.random() < 0.7 ? 'OK' : 'OVER_QUERY_LIMIT';
-        const response = {
-          rows: origins.map(origin => ({
-            elements: destinations.map(destination => {
-              const distance = Math.floor(Math.sqrt(
-                Math.pow(10000 * origin.lat() - 10000 * destination.lat(), 2) +
-                Math.pow(10000 * origin.lng() - 10000 * destination.lng(), 2)
-              ));
-              return {
-                distance: {
-                  value: distance,
-                  text: `${distance} m`
-                },
-                status: 'OK'
-              };
-            })
-          }))
-        };
-        callback(response, status);
-      }, randomDelay);
-    }
-  };
+    return {
+        getDistanceMatrix(params, callback) {
+            const { origins, destinations } = params;
+            const randomDelay = Math.random() * 1500;
+            setTimeout(() => {
+                const status = Math.random() < 0.7 ? 'OK' : 'OVER_QUERY_LIMIT';
+                const response = {
+                    rows: origins.map(origin => ({
+                        elements: destinations.map(destination => {
+                            const distance = Math.floor(Math.sqrt(
+                                Math.pow(10000 * origin.lat() - 10000 * destination.lat(), 2) +
+                                Math.pow(10000 * origin.lng() - 10000 * destination.lng(), 2)
+                            ));
+                            return {
+                                distance: {
+                                    value: distance,
+                                    text: `${distance} m`
+                                },
+                                status: 'OK'
+                            };
+                        })
+                    }))
+                };
+                callback(response, status);
+            }, randomDelay);
+        }
+    };
 }
 
 // will match any two floats separated by a comma
 const latLngRe = /(?<lat>\d+(\.\d+)?).*?,.*?(?<lng>\d+(\.\d+)?)/;
 
 function parseLocation(location) {
-  if (location.startsWith('🔵 ')) {
-    const locationData = parseGeocodeCacheValue(location);
-    const { o: { lat, lng } } = locationData;
-    return new google.maps.LatLng(lat, lng);
-  } else if (latLngRe.test(location)) {
-    const matches = latLngRe.exec(location);
-    const { lat, lng } = matches.groups;
-    return new google.maps.LatLng(lat, lng);
-  } else {
-    return location;
-  }
+    if (location.startsWith('🔵 ')) {
+        const locationData = parseGeocodeCacheValue(location);
+        const { o: { lat, lng } } = locationData;
+        return new google.maps.LatLng(lat, lng);
+    } else if (latLngRe.test(location)) {
+        const matches = latLngRe.exec(location);
+        const { lat, lng } = matches.groups;
+        return new google.maps.LatLng(lat, lng);
+    } else {
+        return location;
+    }
 }

@@ -27,16 +27,16 @@ export async function addChoicesToSelectField(selectField, choices) {
 }
 
 export function createMockDistanceTable(origins, destinations) {
-  const distanceTable = {};
-  origins.forEach(origin => {
-    distanceTable[origin.id] = {};
-    destinations.forEach(destination => {
-      distanceTable[origin.id][destination.id] = {
-        distance: {
-          value: Math.random() * 100
-        }
-      };
+    const distanceTable = {};
+    origins.forEach(origin => {
+        distanceTable[origin.id] = {};
+        destinations.forEach(destination => {
+            distanceTable[origin.id][destination.id] = {
+                distance: {
+                    value: Math.random() * 100
+                }
+            };
+        });
     });
-  });
-  return distanceTable;
+    return distanceTable;
 }
