@@ -22,7 +22,7 @@ If you want to fork these blocks or run them in your own Airtable base, you shou
 This is a good place to start:
 https://airtable.com/developers/blocks/guides/getting-started
 
-The basic steps to get this running in your own block are:
+The basic steps to get this running in your own base are:
 
 1. Download this repo
 2. Follow the steps here: https://airtable.com/developers/blocks/guides/run-in-multiple-bases
