@@ -1,8 +1,8 @@
 # Airtable Blocks Hackathon 2020
 
-Our write up, with screen shots, demo videos, etc: 
+Our entry: https://devpost.com/software/distance-grouping
 
-https://devpost.com/software/distance-grouping
+Demo video: https://www.youtube.com/watch?v=Aen_t8UmrLk
 
 We decided to submit two related, but distinct blocks to the hackathon:
 
